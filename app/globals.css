@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* Design tokens — see docs/DESIGN.md §3. Never hardcode hex in components. */
+:root {
+  color-scheme: light; /* no dark theme by design — DESIGN.md §3 */
+
+  /* surface — warm bone, the gallery wall */
+  --paper: 45 13% 93%;
+  --paper-deep: 42 10% 87%;
+  --paper-edge: 40 8% 80%;
+
+  /* ink — three tiers only */
+  --ink: 30 4% 12%;
+  --ink-2: 30 3% 38%;
+  --ink-3: 30 4% 62%;
+
+  /* accent — sampled from the caps' own `Inner Cork Cover` material */
+  --mint: 170 48% 81%;
+  --mint-deep: 172 34% 62%;
+  --mint-wash: 170 40% 94%;
+
+  /* the crimped metal rim */
+  --rim: 28 22% 55%;
+
+  --radius: 10px;
+
+  /* motion — house easing family, see docs/MOTION.md §1 */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 140ms;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-focus: 820ms;
+}
+
+@theme inline {
+  --color-paper: hsl(var(--paper));
+  --color-paper-deep: hsl(var(--paper-deep));
+  --color-paper-edge: hsl(var(--paper-edge));
+  --color-ink: hsl(var(--ink));
+  --color-ink-2: hsl(var(--ink-2));
+  --color-ink-3: hsl(var(--ink-3));
+  --color-mint: hsl(var(--mint));
+  --color-mint-deep: hsl(var(--mint-deep));
+  --color-mint-wash: hsl(var(--mint-wash));
+  --color-rim: hsl(var(--rim));
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif);
+
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+}
+
+body {
+  background: hsl(var(--paper));
+  color: hsl(var(--ink));
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overscroll-behavior: none;
+}
+
+::selection {
+  background: hsl(var(--mint) / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

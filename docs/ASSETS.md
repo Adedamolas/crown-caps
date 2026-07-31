@@ -173,6 +173,17 @@ Rules that the code enforces, not the author's memory:
   repo for that reason.
 - Rehoboth's research notes are raw material to verify against a second source, not a source.
 
+## 4b. Sound assets
+
+| File | Source | Licence |
+| --- | --- | --- |
+| `sound/853036__litesouris__open-bottle-cap.mp3` | Freesound, uploader `litesouris` | CC0 |
+| `sound/816751__goldenkitty23__metal-bottle-cap-drops.mp3` | Freesound, uploader `goldenkitty23` | CC0 |
+
+~71 KB combined, fetched only after the first user gesture. CC0 requires no attribution; credit
+the uploaders regardless. **Any future audio must be CC0 or explicitly licensed** — this project
+already sits on live trademarks (CLAUDE.md §10) and does not need a second rights problem.
+
 ## 5. Research status
 
 Done 2026-07-31, sources and supporting quotes in `app/data/caps.ts`. **9 of 14 caps carry

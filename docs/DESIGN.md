@@ -16,8 +16,8 @@ Three consequences that override normal web instincts:
 
 - **Light background, not dark.** The current starter viewer is `#0a0a0a`. That is wrong for this
   project and gets replaced. See §5 for what a light background costs you technically.
-- **Type is the layout.** The words are enormous and the caps overlap them. Type is not a label
-  sitting politely beside the art; it is in the same physical stack.
+- **Type is the layout.** The words are enormous. Type is not a label sitting politely beside the
+  art; it is printed on the same wall the caps are lying on. It sits BEHIND every cap — see §6.
 - **Depth is earned with shadow, not with blur or glow.** Soft, short, slightly warm contact
   shadows. No drop-shadow filters, no bloom.
 
@@ -195,6 +195,21 @@ facts ship.** The design supports that rather than papering over it.
   what gets dragged.
 
 See `ASSETS.md` §4 for the record shape that enforces this.
+
+## 8b. Sound
+
+Two CC0 clips from Freesound, fetched only after the first user gesture (browsers block
+`AudioContext` before one, and a visitor who never interacts should not pay the ~71 KB):
+
+| Clip | Trigger | File |
+| --- | --- | --- |
+| bottle cap opening | focusing a cap | `853036__litesouris__open-bottle-cap.mp3` |
+| metal cap drop | flipping a cap | `816751__goldenkitty23__metal-bottle-cap-drops.mp3` |
+
+CC0 imposes no attribution requirement, but credit the uploaders anyway — `litesouris` and
+`goldenkitty23`. A visible **Sound on/off** control is mandatory and the choice persists in
+`localStorage`. Sound must never autoplay, and a clip that has not finished decoding is skipped
+rather than played late.
 
 ## 9. Review checklist
 

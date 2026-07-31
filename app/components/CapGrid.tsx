@@ -11,6 +11,7 @@ import { makeRulesConfig, useTokenColor } from './GridRules';
 import CapInfo from './CapInfo';
 import TypeLayer, { useTitleTexture } from './TypeLayer';
 import { useRevealTexture } from './RevealTexture';
+import { initSound, isMuted, loadMutePreference, play, setMuted } from './sound';
 
 /** Ceilings, so a resize never needs to reallocate instance buffers. A viewport
  *  holds ~50 cells; the per-cap meshes only need the worst case for one brand. */
@@ -375,9 +376,15 @@ function CapField({
     // on a phone the panel is a bottom sheet, so the cap moves into the upper part of
     // the screen; on desktop the panel is a right-hand column, so the cap shifts left.
     // Getting this wrong makes the cap unreadable AND untappable, which kills the flip.
-    const focusX = narrow ? 0 : -viewport.width * 0.17;
-    const focusY = narrow ? viewport.height * 0.2 : 0;
-    const focusScale = narrow ? 1.45 : 1.95;
+    //
+    // The anchor is expressed as a fraction of the SCREEN and converted back to world
+    // units, because a focused cap sits much nearer the camera than the z = 0 plane
+    // `viewport` describes — everything there is magnified by ~2x. Placing it directly
+    // in world units overshoots by exactly that factor and throws the cap off-screen.
+    const magnify = camZ / (camZ - FOCUS_Z);
+    const focusX = narrow ? 0 : (-0.2 * viewport.width) / magnify;
+    const focusY = narrow ? (0.25 * viewport.height) / magnify : 0;
+    const focusScale = narrow ? 1.3 : 1.9;
 
     return {
       cell,
@@ -393,7 +400,7 @@ function CapField({
       typeZ: TYPE_Z_D * D,
       rulesZ: RULES_Z_D * D,
     };
-  }, [viewport.width, viewport.height]);
+  }, [viewport.width, viewport.height, camZ]);
 
   // Input, bound to the canvas itself.
   useEffect(() => {
@@ -406,6 +413,9 @@ function CapField({
     const press = { x: 0, y: 0 };
 
     const down = (e: PointerEvent) => {
+      // Browsers refuse to create an AudioContext outside a user gesture, so this is
+      // the earliest legitimate moment. Also keeps the ~71 KB off the initial load.
+      initSound();
       el.setPointerCapture(e.pointerId);
       const s = input.current;
       s.dragging = true;
@@ -686,8 +696,12 @@ function CapField({
         if (isFocused && hero) {
           hero.position.copy(dummy.position);
           hero.rotation.copy(dummy.rotation);
-          // Turn it over onto its back. Added to X, so it composes with the spin
-          // rather than replacing it — the cap keeps turning while it flips.
+          // Turn it over onto its back, and unwind the spin as it goes. You flip a cap
+          // in order to READ what is under the crown, so it has to settle facing you —
+          // a message that keeps rotating away is a message nobody reads. Scaling the
+          // angle rather than zeroing the rate keeps the motion smooth in both
+          // directions and returns it to the live spin on unflip.
+          hero.rotation.y = spin * (1 - flipRamp.current);
           hero.rotation.x += flipRamp.current * Math.PI;
           hero.scale.copy(dummy.scale);
           if (heroOuterRef.current) heroOuterRef.current.material = outerMats[capIdx];
@@ -804,6 +818,7 @@ export default function CapGrid() {
   const changeFocus = useCallback((next: Focus | null) => {
     setFocus(next);
     setFlipped(false); // a new cap always arrives brand-side up
+    if (next) play('open');
     if (unmountTimer.current) clearTimeout(unmountTimer.current);
     if (next) {
       setPanel(next);
@@ -812,7 +827,19 @@ export default function CapGrid() {
     }
   }, []);
 
-  const toggleFlip = useCallback(() => setFlipped((f) => !f), []);
+  const toggleFlip = useCallback(() => {
+    play('clink');
+    setFlipped((f) => !f);
+  }, []);
+
+  // Lazy initialiser rather than an effect: localStorage is available on the client's
+  // first render, and reading it in an effect causes a visible flip of the label.
+  const [muted, setMutedState] = useState(loadMutePreference);
+  const toggleMute = useCallback(() => {
+    const next = !isMuted();
+    setMuted(next);
+    setMutedState(next);
+  }, []);
 
   useEffect(() => {
     if (!focus) return;
@@ -858,6 +885,15 @@ export default function CapGrid() {
           <Lightformer intensity={1.8} position={[0, 7, 0]} scale={[12, 12, 1]} color="#ffffff" />
         </Environment>
       </Canvas>
+
+      <button
+        onClick={toggleMute}
+        aria-pressed={muted}
+        className="absolute bottom-5 left-5 z-10 text-[11px] uppercase tracking-[0.18em] text-ink-3
+                   transition-[color,transform] duration-150 ease-out hover:text-ink active:scale-90"
+      >
+        {muted ? 'Sound off' : 'Sound on'}
+      </button>
 
       {panel && (
         <CapInfo

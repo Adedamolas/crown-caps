@@ -51,7 +51,7 @@ const tier  = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'C'
 | --- | --- | --- | --- |
 | visible caps | ~110 | ~55 | ~28 |
 | `dpr` | `[1, 2]` | `[1, 1.5]` | `1` |
-| depth of field | real DoF pass | dim + desaturate only | none |
+| depth of field | optional DoF pass | scrim only | scrim only |
 | contact shadows | `<ContactShadows>` live | baked, low-res, frame-skipped | single blurred sprite |
 | ambient spin | yes | yes | none (static, focus-only) |
 | cursor attraction | yes | yes | none |
@@ -112,23 +112,31 @@ otherwise eat a day: if a cap's brand or jitter comes from `i`, every cap silent
 identity the instant it wraps around the edge.
 
 ```ts
-const absCol = Math.round((x + ox) / CW);   // stable integer, survives wrapping
-const absRow = Math.round((y + oy) / CH);
-const h      = hash2(absCol, absRow);       // any cheap integer hash → [0,1)
-const capId  = CAPS[Math.floor(h * CAPS.length)];
+const absCol = Math.round((x + ox) / CW - 0.5);   // stable integer, survives wrapping
+const absRow = Math.round((y + oy) / CH - 0.5);
+const capId  = CAPS[capAt(absCol, absRow, CAPS.length)];   // (3·col + 5·row) mod 14
 ```
 
-With 14 caps in a rectangular lattice, a naive `(col + row * COLS) % 14` produces visible diagonal
-banding of repeats. The hash breaks it up. Accept that duplicates will sometimes sit near each
-other — that reads as a real pile of caps. Perfect spacing of duplicates would read as designed,
-which is worse.
+**Identity is a lattice, not a hash** *(revised 2026-07-31)*. Uniform random assignment clumps —
+with 14 caps over ~40 visible cells you get ~3 copies of each on screen and duplicates land side
+by side, which reads as a bug rather than a pattern. `(A·col + B·row) mod n` with A and B coprime
+to n = 14 guarantees no two neighbours ever match (orthogonally or diagonally), the nearest repeat
+of any cap is √10 ≈ 3.2 cells away, and density is exactly even. Spin phase and rate still come
+from the hash, so the regularity never looks stamped.
+
+Repetition is unavoidable on an infinite field with 14 caps. Evenly spread it reads as a printed
+catalogue; clumped it reads as broken.
 
 ### Input
 
 - **Drag** (pointer + touch): 1:1 with `O`. On release, inertia — velocity from the last ~80ms of
   movement, then exponential decay `v *= exp(-3.5 * dt)`, cut off below a small epsilon.
-- **Wheel / trackpad**: both axes, `deltaX`/`deltaY` straight into `O`. Do not hijack into
-  single-axis scroll; the field moves in any direction, that is the point.
+- **Wheel / trackpad**: both axes into `O`. Do not hijack into single-axis scroll; the field moves
+  in any direction, that is the point. **Normalise `deltaMode`** (0 = pixels, 1 = lines,
+  2 = pages) and clamp per notch, or a wheel mouse and a trackpad behave wildly differently.
+- **Speed ceiling**: drag and inertia both clamp to `FIELD.MAX_SPEED`. Unbounded flick velocity
+  sends the field across many cells per frame, every cap snaps rather than eases, and it reads as
+  tearing rather than speed.
 - **Keyboard**: arrows nudge `O` by one cell, `Tab` moves focus cap to cap. Per design-dna,
   **keyboard-initiated movement is not animated** beyond a 150ms settle — no flourish.
 - No scrollbars, no scroll container. The page itself never scrolls; `overscroll-behavior: none`.
@@ -259,6 +267,30 @@ B: a DoF pass is the first thing that tanks frame time on a mid-range Adreno.
 Never blur with a CSS `backdrop-filter` over the canvas: it forces a second canvas or a readback,
 and it would break the single-scene continuity that §1 depends on.
 
+### Where a focused cap parks
+
+The cap and the info panel must never occupy the same space. On a phone the panel is a bottom
+sheet, so the cap parks in the upper part of the screen; on desktop the panel is a right-hand
+column, so the cap shifts left. Getting this wrong does not merely look bad — it makes the cap
+untappable, which silently kills the flip reveal.
+
+⚠️ **Express the anchor as a fraction of the SCREEN and convert back to world units.** A focused
+cap sits at `FOCUS_Z`, much nearer the camera than the `z = 0` plane that `viewport` describes, so
+everything there is magnified by `camZ / (camZ - FOCUS_Z)` — roughly 2×. Placing the anchor
+directly in world units overshoots by exactly that factor and throws the cap off-screen. The
+flip hit-test needs the same correction, or it tests a point the cap is nowhere near.
+
+### Flipping settles the spin
+
+Turning a cap over eases its Y rotation to zero as the flip completes. You flip a cap in order to
+READ what is under the crown; a message that keeps rotating away is a message nobody reads. Scale
+the angle by `(1 - flipRamp)` rather than zeroing the rate — smooth in both directions, and it
+hands straight back to the live spin on unflip.
+
+The liner is only ever seen through a 180° flip about X, which maps local +y to screen −y. With
+the default `flipY` the canvas top lands at the bottom and the message reads mirrored; the reveal
+texture sets `flipY = false` to cancel exactly that.
+
 ### Sharpening on focus
 
 The grid runs 256px textures, correct at ~120px on screen and visibly soft once a cap doubles in
@@ -305,6 +337,9 @@ Tier C is not a degraded version, it is a correct version:
 | Linear falloff inside a radius | gaussian (§4) |
 | Attraction visible enough to notice as movement | lower `PULL`; it is meant to be faint |
 | Caps drifting off their ruled boxes | perspective pre-scale on the rules plane (§3) |
+| Hero type slicing through caps | type plane must clear ±0.5·D of spin sweep (§6) |
+| Focused cap off-screen or untappable | anchor in screen fractions, ÷ magnification (§6) |
+| Field tearing on a hard flick | clamp to `FIELD.MAX_SPEED`; normalise wheel `deltaMode` |
 | Caps edge-on and unreadable half the time | raise `SPIN_DWELL`; never add tilt (§5) |
 | Rules drawn as an animated CSS background | shader; CSS repaints and stutters (§3) |
 | Focus implemented as a route/component swap | promote in place, same object (§6) |

@@ -63,6 +63,10 @@ function draw(text: string, ink: string): THREE.CanvasTexture | null {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  // The liner is only ever seen through a 180° flip about X, which maps local +y to
+  // screen -y. With the default flipY the canvas top lands at the bottom and the
+  // message reads mirrored. Disabling it cancels exactly that.
+  tex.flipY = false;
   return tex;
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE, SITE_URL } from "./site";
 
@@ -101,7 +102,27 @@ export default function RootLayout({
       lang={SITE.lang}
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/*
+          Visitors analytics — a literal tag in <head>, as the vendor specifies.
+          Deliberately NOT next/script: `beforeInteractive` emits only a preload link
+          into <head> and pushes the real element from a body script at runtime, so
+          the tag never actually exists in the head of the served HTML.
+          Rendered here it loads on every route, unconditionally, attributes verbatim.
+        */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- the vendor
+            specifies this tag verbatim; adding async/defer would modify it. See the
+            render-blocking note below. */}
+        <script
+          src="https://cdn.visitors.now/v.js"
+          data-token="7b6945c7-eba5-47cf-b2e0-56b446e5fcfa"
+          data-persist=""
+        />
+      </head>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

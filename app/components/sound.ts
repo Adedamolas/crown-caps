@@ -5,21 +5,25 @@
  * fight over one element and latency stays low enough to feel attached to the tap.
  *
  * Nothing is fetched until the first user gesture: browsers block AudioContext before
- * one, and these are ~71 KB that a visitor who never interacts should not pay for.
+ * one, and this is bytes a visitor who never interacts should not pay for.
  *
- * Assets are CC0 from Freesound — see docs/ASSETS.md for attribution.
+ * Assets are CC0 from Freesound, trimmed by scripts/build-sound.mjs.
+ * See docs/ASSETS.md §4b for attribution and for why each clip was cut where it was.
  */
 
 type Clip = 'open' | 'clink';
 
+// Trimmed and normalised by scripts/build-sound.mjs — the raw uploads are kept
+// alongside as the source of truth. See docs/ASSETS.md §4b for why each was cut.
 const SOURCES: Record<Clip, string> = {
-  open: '/sound/853036__litesouris__open-bottle-cap.mp3',
-  clink: '/sound/816751__goldenkitty23__metal-bottle-cap-drops.mp3',
+  open: '/sound/open.mp3',
+  clink: '/sound/clink.mp3',
 };
 
+// Both clips now peak at -1 dBFS, so these are perceptual balance only.
 const GAIN: Record<Clip, number> = {
-  open: 0.5,
-  clink: 0.35, // the drop is sharper; it needs pulling back to sit with the other
+  open: 0.55,
+  clink: 0.45,
 };
 
 let ctx: AudioContext | null = null;

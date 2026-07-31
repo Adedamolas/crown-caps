@@ -175,14 +175,31 @@ Rules that the code enforces, not the author's memory:
 
 ## 4b. Sound assets
 
-| File | Source | Licence |
-| --- | --- | --- |
-| `sound/853036__litesouris__open-bottle-cap.mp3` | Freesound, uploader `litesouris` | CC0 |
-| `sound/816751__goldenkitty23__metal-bottle-cap-drops.mp3` | Freesound, uploader `goldenkitty23` | CC0 |
+| Shipped | Source upload | Uploader | Licence |
+| --- | --- | --- | --- |
+| `sound/open.mp3` | `853036__litesouris__open-bottle-cap.mp3` | `litesouris` | CC0 |
+| `sound/clink.mp3` | `816751__goldenkitty23__metal-bottle-cap-drops.mp3` | `goldenkitty23` | CC0 |
 
-~71 KB combined, fetched only after the first user gesture. CC0 requires no attribution; credit
-the uploaders regardless. **Any future audio must be CC0 or explicitly licensed** — this project
-already sits on live trademarks (CLAUDE.md §10) and does not need a second rights problem.
+Rebuild with `node scripts/build-sound.mjs` (needs ffmpeg). The raw uploads stay in the repo as
+the source of truth; only the trimmed files are loaded at runtime.
+
+**71 KB → 8.1 KB**, and both clips got better, not just smaller:
+
+- **open** — the 1.46s upload holds four separate events. Windowed RMS plus zero-crossing rate
+  puts the hiss in the first ~120ms only (ZCR 0.50–0.54 = broadband noise); after it come a knock
+  at 360ms, a thump at 600ms and a second hiss at 1020ms. The thump is the **loudest** thing in
+  the file at −12 dB, so playing it whole meant mostly hearing a thump rather than a pssst. Cut
+  to 135ms.
+- **clink** — the cap comes to rest by ~470ms and the remaining ~900ms is digital silence below
+  −95 dB. Cut to 415ms, starting at 55ms so the hit lands immediately on tap rather than after a
+  near-silent lead-in.
+
+Both are normalised to −1 dBFS afterwards, since removing the loudest section leaves the rest far
+too quiet, and both get a fade-out (a hard cut clicks).
+
+Fetched only after the first user gesture. CC0 requires no attribution; credit the uploaders
+regardless. **Any future audio must be CC0 or explicitly licensed** — this project already sits on
+live trademarks (CLAUDE.md §10) and does not need a second rights problem.
 
 ## 5. Research status
 

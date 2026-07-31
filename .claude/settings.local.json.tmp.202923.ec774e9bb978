@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"page: HTTP %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(timeout 180 npx --yes @gltf-transform/cli@latest --version)",
+      "Bash(npm i *)",
+      "Bash(echo \"--- exit $? ---\")",
+      "Bash(npx eslint *)",
+      "WebSearch",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:ng.coca-colahellenic.com)",
+      "WebFetch(domain:www.nairaland.com)",
+      "WebFetch(domain:www.ide.go.jp)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'chore: scaffold Next.js 16 project with react-three-fiber *)",
+      "Bash(git commit -q -m 'feat\\(assets\\): add 14 source crown cap GLBs *)",
+      "Bash(python3 -)",
+      "Bash(git commit -q -m 'feat\\(grid\\): hero type layer and under-crown flip reveal *)",
+      "Bash(git push *)",
+      "Bash(git commit -q -m 'feat: reduced-motion support, WebGL fallback, first-run hint *)"
+    ]
+  }
+}

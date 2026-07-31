@@ -341,16 +341,37 @@ Flip is 520ms `ease-out` about the X axis, with a small `z` lift at the midpoint
 than rotating in place — a cap flipped on a table rises slightly. Reuse the same function; if
 these ever diverge into two implementations, one of them will start looking wrong.
 
-## 8. Reduced motion
+## 8. Reduced motion — **implemented**
 
-Tier C is not a degraded version, it is a correct version:
+Not a degraded version, a correct one. `prefers-reduced-motion` is watched live rather than read
+once, because people reach for that setting precisely when something is already bothering them.
 
-- No ambient spin, no cursor attraction, no inertia. The field is still, still overlapping, still
-  beautiful — it is the poster.
-- Focus still works, because it is navigation, not decoration: 200ms opacity + scale cross-fade,
-  no travel, no blur ramp.
-- The flip reveal becomes an opacity cross-fade between the two faces.
-- Dragging still moves the field, 1:1, with no inertia after release.
+- **Ambient spin stops.** The clock driving it is frozen at `t = 0`; caps keep their per-cap phase
+  so the field still reads scattered and alive, it simply does not move.
+- **Cursor attraction is off.**
+- **Inertia is off.** Dragging still works 1:1 — it is the un-asked-for coasting afterwards that
+  does not.
+- **Focus and flip still work.** They are navigation, not decoration, and removing them would
+  remove the site.
+
+⚠️ Honouring this in CSS alone is not enough and looks like compliance while doing nothing. The
+`globals.css` block only clamps DOM transitions; fifty continuously rotating WebGL objects are
+entirely unaffected by it. The scene has to opt in explicitly, as above.
+
+## 8b. When there is no WebGL at all
+
+The entire page is one canvas, so a browser that cannot give us a context — older Android, a
+locked-down browser, a GPU blocklist, a machine out of contexts — otherwise gets a blank bone
+rectangle. `NoWebGL.tsx` renders the hero line, the poster image and the cap list instead. Probe
+synchronously in a lazy initialiser, never in an effect, or the fallback flashes for a frame
+before the canvas replaces it.
+
+## 8c. Telling people it is interactive
+
+A grid of caps offers no affordance. Someone arriving from a shared link has no reason to think
+the field can be dragged, and every reviewer of this project so far has known because they watched
+it being built. One line — *Drag to explore · Tap a cap* — retires itself the moment anything is
+touched.
 
 ## 9. Review checklist
 

@@ -12,6 +12,40 @@ import CapInfo from './CapInfo';
 import TypeLayer, { useTitleTexture } from './TypeLayer';
 import { useRevealTexture } from './RevealTexture';
 import { initSound, isMuted, loadMutePreference, play, setMuted } from './sound';
+import NoWebGL from './NoWebGL';
+
+/**
+ * True when the user has asked for less movement. Watched live, not read once —
+ * people toggle this precisely when something is bothering them.
+ */
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return reduced;
+}
+
+/**
+ * Can this browser actually give us a context at all?
+ *
+ * Probed in a lazy initialiser rather than an effect: the answer is available
+ * synchronously on the client, and deferring it would flash the fallback for a frame
+ * before the canvas replaced it. This component is already client-only, so there is
+ * no server render to mismatch against.
+ */
+function detectWebGL(): boolean {
+  try {
+    const c = document.createElement('canvas');
+    return Boolean(c.getContext('webgl2') ?? c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
 
 /** Ceilings, so a resize never needs to reallocate instance buffers. A viewport
  *  holds ~50 cells; the per-cap meshes only need the worst case for one brand. */
@@ -203,11 +237,13 @@ export type Focus = { col: number; row: number; capIdx: number };
 function CapField({
   focus,
   flipped,
+  reduced,
   onFocus,
   onFlip,
 }: {
   focus: Focus | null;
   flipped: boolean;
+  reduced: boolean;
   onFocus: (f: Focus | null) => void;
   onFlip: () => void;
 }) {
@@ -582,8 +618,12 @@ function CapField({
     }
 
     // Inertia after release, with the same speed ceiling as the drag itself so a
-    // long fling cannot outrun it.
-    if (!s.dragging && !focus) {
+    // long fling cannot outrun it. Dragging still works under reduced motion; it is
+    // the un-asked-for coasting afterwards that does not.
+    if (reduced) {
+      s.vx = 0;
+      s.vy = 0;
+    } else if (!s.dragging && !focus) {
       const decay = Math.exp(-FIELD.DAMP_DRAG * dt);
       const vMax = FIELD.MAX_SPEED * layout.cell;
       s.vx = clamp(s.vx * decay, -vMax, vMax);
@@ -596,7 +636,10 @@ function CapField({
 
     const { cell, cols, rows, spanX, spanY, D, rulesZ } = layout;
     const spinBase = (Math.PI * 2) / FIELD.REV_SECONDS;
-    const t = performance.now() / 1000;
+    // Reduced motion freezes the clock the ambient spin is driven from. Caps keep
+    // their per-cap phase, so the field still looks scattered and alive — it simply
+    // stops moving. Focus and flip still work: those are navigation, not decoration.
+    const t = reduced ? 0 : performance.now() / 1000;
 
     // Keep the ruled lines locked to the field.
     //
@@ -657,7 +700,7 @@ function CapField({
         // Cursor attraction — gaussian, so there is no visible radius edge. Ramped out
         // while focused, or the blurred field twitches under the info panel.
         let w = 0;
-        if (s.hover && !focus) {
+        if (s.hover && !focus && !reduced) {
           const dx = curX - x;
           const dy = curY - y;
           const d = Math.hypot(dx, dy);
@@ -852,6 +895,10 @@ function CapField({
 export default function CapGrid() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [flipped, setFlipped] = useState(false);
+  const reduced = useReducedMotion();
+  const [webgl] = useState(detectWebGL);
+  /** The hint is only useful until the visitor works it out for themselves. */
+  const [touched, setTouched] = useState(false);
   /** Outlives `focus` so the panel can animate out alongside the cap. */
   const [panel, setPanel] = useState<Focus | null>(null);
   const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -893,8 +940,14 @@ export default function CapGrid() {
 
   useEffect(() => () => void (unmountTimer.current && clearTimeout(unmountTimer.current)), []);
 
+  if (!webgl) return <NoWebGL />;
+
   return (
-    <div className="relative h-dvh w-full touch-none select-none bg-paper">
+    <div
+      className="relative h-dvh w-full touch-none select-none bg-paper"
+      onPointerDown={() => setTouched(true)}
+      onWheel={() => setTouched(true)}
+    >
       <Canvas
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 6], fov: 45 }}
@@ -903,6 +956,7 @@ export default function CapGrid() {
         <CapField
           focus={focus}
           flipped={flipped}
+          reduced={reduced}
           onFocus={changeFocus}
           onFlip={toggleFlip}
         />
@@ -928,6 +982,20 @@ export default function CapGrid() {
           <Lightformer intensity={1.8} position={[0, 7, 0]} scale={[12, 12, 1]} color="#ffffff" />
         </Environment>
       </Canvas>
+
+      {/* Nothing else on screen says the field can be dragged. Someone arriving from
+          a shared link has no idea this is interactive, and a grid of caps gives no
+          affordance on its own. Retires itself the moment they touch anything. */}
+      <p
+        aria-hidden={touched}
+        style={{ transitionTimingFunction: 'var(--ease-out)' }}
+        className={`pointer-events-none absolute inset-x-0 bottom-6 z-10 text-center
+                    text-[11px] uppercase tracking-[0.18em] text-ink-3
+                    transition-opacity duration-500
+                    ${touched || focus ? 'opacity-0' : 'opacity-100'}`}
+      >
+        Drag to explore · Tap a cap
+      </p>
 
       <button
         onClick={toggleMute}

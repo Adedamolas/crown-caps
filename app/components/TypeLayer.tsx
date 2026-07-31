@@ -41,6 +41,7 @@ function resolveSerif(): string {
   return family || 'serif';
 }
 
+
 function drawTitle(ink: string): THREE.CanvasTexture | null {
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_W;

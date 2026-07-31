@@ -9,6 +9,8 @@ import { CAPS } from '../data/caps';
 import { FIELD, capAt, damp, falloff, hash2, hash2b, wrap } from './capField';
 import { makeRulesConfig, useTokenColor } from './GridRules';
 import CapInfo from './CapInfo';
+import TypeLayer, { useTitleTexture } from './TypeLayer';
+import { useRevealTexture } from './RevealTexture';
 
 /** Ceilings, so a resize never needs to reallocate instance buffers. A viewport
  *  holds ~50 cells; the per-cap meshes only need the worst case for one brand. */
@@ -82,6 +84,20 @@ function prepareCapGeometry(scene: THREE.Object3D): CapGeometry {
     g.translate(-cx, -cy, -cz);
     g.scale(1 / diameter, 1 / diameter, 1 / diameter);
     g.computeBoundingSphere();
+  }
+
+  // The inner liner ships with no TEXCOORD_0 — it was untextured in Blender, so the
+  // pipeline correctly dropped it. Project planar UVs from Z so the flip reveal has
+  // something to print a message onto. The liner is a flat disc, so a planar
+  // projection is exact rather than an approximation.
+  if (!innerGeo.getAttribute('uv')) {
+    const pos = innerGeo.getAttribute('position');
+    const uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) {
+      uv[i * 2] = pos.getX(i) + 0.5; // geometry is centred and diameter 1
+      uv[i * 2 + 1] = pos.getY(i) + 0.5;
+    }
+    innerGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   }
 
   return { outerGeo, innerGeo };
@@ -174,10 +190,14 @@ export type Focus = { col: number; row: number; capIdx: number };
 
 function CapField({
   focus,
+  flipped,
   onFocus,
+  onFlip,
 }: {
   focus: Focus | null;
+  flipped: boolean;
   onFocus: (f: Focus | null) => void;
+  onFlip: () => void;
 }) {
   const { outerGeo, innerGeo } = useCapGeometry();
   const hi = useHiGeometry(focus !== null);
@@ -194,6 +214,14 @@ function CapField({
 
   const edgeColor = useTokenColor('--paper-edge', '#CFCBC2');
   const paperColor = useTokenColor('--paper', '#EFEDE8');
+  const inkColor = useTokenColor('--ink', '#201F1D');
+
+  const titleTex = useTitleTexture(inkColor);
+  const titleMatRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  /** Under-crown message for the focused cap, printed on the mint liner. */
+  const revealTex = useRevealTexture(focus ? CAPS[focus.capIdx] : null, inkColor);
+  const heroInnerMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
   /**
    * Materials are declared in JSX and reached through refs — the R3F way. They are
@@ -209,6 +237,12 @@ function CapField({
 
   /** Focus ramp, 0 → 1. */
   const ease = useRef(0);
+  /** Flip ramp, 0 = brand face, 1 = turned over to the message under the crown.
+   *  Named apart from the per-cap `flip` inside the frame loop, which is the
+   *  texture-load reveal and a different thing entirely. */
+  const flipRamp = useRef(0);
+  /** Total distance dragged, used to fade the hero type once exploring begins. */
+  const travelled = useRef(0);
   /**
    * The cap that is focused OR still animating back. Without this the exit never
    * plays: the moment `focus` clears, no cell matches any more, so the cap would
@@ -364,6 +398,7 @@ function CapField({
       const dy = (e.clientY - drag.y) * k();
       s.ox -= dx;
       s.oy += dy;
+      travelled.current += Math.hypot(dx, dy);
 
       const now = performance.now();
       const dt = Math.max((now - drag.t) / 1000, 1 / 240);
@@ -381,10 +416,16 @@ function CapField({
 
       // A press that barely moved is a click, not a flick.
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6) {
-        // While focused, the field behind the scrim is inert: a click dismisses rather
-        // than jumping focus to whatever happens to be underneath.
+        const r0 = el.getBoundingClientRect();
         if (focus) {
-          onFocus(null);
+          // While focused the field behind the scrim is inert. Clicking the cap itself
+          // flips it to the message under the crown; clicking away dismisses. Nothing
+          // re-targets focus to whatever happens to sit underneath.
+          const cx = r0.left + r0.width / 2;
+          const cy = r0.top + r0.height / 2;
+          const hit = Math.min(r0.width, r0.height) * 0.22;
+          if (Math.hypot(e.clientX - cx, e.clientY - cy) < hit) onFlip();
+          else onFocus(null);
           return;
         }
         const r = el.getBoundingClientRect();
@@ -428,7 +469,7 @@ function CapField({
       el.removeEventListener('pointerleave', leave);
       el.removeEventListener('wheel', wheel);
     };
-  }, [domElement, viewport.width, viewport.height, size.height, layout, onFocus, focus]);
+  }, [domElement, viewport.width, viewport.height, size.height, layout, onFocus, onFlip, focus]);
 
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 1 / 30); // clamp so a stall doesn't teleport the field
@@ -441,6 +482,17 @@ function CapField({
       ease.current = 0;
       held.current = null; // fully home; release it back to the field
     }
+    // Flip ramp toward the under-crown message, and the hero type fading out once
+    // the user starts exploring — the title has done its job by then.
+    flipRamp.current += ((flipped ? 1 : 0) - flipRamp.current) * damp(5, dt);
+    if (!s.dragging) travelled.current += Math.hypot(s.vx, s.vy) * dt;
+    const titleMat = titleMatRef.current;
+    if (titleMat) {
+      const faded = Math.max(0, 1 - travelled.current / (layout.cell * 6));
+      titleMat.opacity = faded * (1 - ease.current);
+      titleMat.visible = titleMat.opacity > 0.01;
+    }
+
     const active = focus ?? held.current;
     const scrim = scrimRef.current;
     if (scrim) {
@@ -515,6 +567,11 @@ function CapField({
         const hb = hash2b(absCol, absRow); // spin rate only
         const capIdx = capAt(absCol, absRow, CAPS.length);
 
+        // Depth variation. Not positional jitter — the caps stay centred in their
+        // boxes — but each sits slightly nearer or further, so the hero type at z = 0
+        // has caps both in front of and behind it. That interleaving is the poster.
+        const zDepth = (hb - 0.5) * FIELD.DEPTH * D;
+
         // Cursor attraction — gaussian, so there is no visible radius edge. Ramped out
         // while focused, or the blurred field twitches under the info panel.
         let w = 0;
@@ -526,11 +583,11 @@ function CapField({
           const inv = d || 1;
           target[0] = x + (dx / inv) * w * FIELD.PULL * cell;
           target[1] = y + (dy / inv) * w * FIELD.PULL * cell;
-          target[2] = w * FIELD.LIFT * cell;
+          target[2] = zDepth + w * FIELD.LIFT * cell;
         } else {
           target[0] = x;
           target[1] = y;
-          target[2] = 0;
+          target[2] = zDepth;
         }
 
         const o = slot * 3;
@@ -577,6 +634,9 @@ function CapField({
         if (isFocused && hero) {
           hero.position.copy(dummy.position);
           hero.rotation.copy(dummy.rotation);
+          // Turn it over onto its back. Added to X, so it composes with the spin
+          // rather than replacing it — the cap keeps turning while it flips.
+          hero.rotation.x += flipRamp.current * Math.PI;
           hero.scale.copy(dummy.scale);
           if (heroOuterRef.current) heroOuterRef.current.material = outerMats[capIdx];
           continue; // skip the instanced copy
@@ -631,10 +691,24 @@ function CapField({
 
       {/* The focused cap at full detail (50k tris vs the grid's 4k), so the crimped
           rim holds up when it is enlarged. Fetched on first focus only. */}
+      {titleTex && (
+        <TypeLayer texture={titleTex} materialRef={titleMatRef} width={viewport.width * 0.82} />
+      )}
+
       {hi && (
         <group ref={heroRef} visible={false}>
           <mesh ref={heroOuterRef} geometry={hi.outerGeo} material={outerMats[0]} />
-          <mesh geometry={hi.innerGeo} material={innerMat} />
+          {/* The hero gets its own liner material so the under-crown message prints
+              on this cap only — the grid's shared mint stays untouched. */}
+          <mesh geometry={hi.innerGeo}>
+            <meshStandardMaterial
+              ref={heroInnerMatRef}
+              color="#b7e6de"
+              map={revealTex}
+              metalness={0}
+              roughness={0.5}
+            />
+          </mesh>
         </group>
       )}
 
@@ -661,6 +735,7 @@ function CapField({
 
 export default function CapGrid() {
   const [focus, setFocus] = useState<Focus | null>(null);
+  const [flipped, setFlipped] = useState(false);
   /** Outlives `focus` so the panel can animate out alongside the cap. */
   const [panel, setPanel] = useState<Focus | null>(null);
   const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -669,6 +744,7 @@ export default function CapGrid() {
    *  rather than by an effect reacting to it (which cascades renders). */
   const changeFocus = useCallback((next: Focus | null) => {
     setFocus(next);
+    setFlipped(false); // a new cap always arrives brand-side up
     if (unmountTimer.current) clearTimeout(unmountTimer.current);
     if (next) {
       setPanel(next);
@@ -676,6 +752,8 @@ export default function CapGrid() {
       unmountTimer.current = setTimeout(() => setPanel(null), 320);
     }
   }, []);
+
+  const toggleFlip = useCallback(() => setFlipped((f) => !f), []);
 
   useEffect(() => {
     if (!focus) return;
@@ -693,7 +771,12 @@ export default function CapGrid() {
         camera={{ position: [0, 0, 6], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       >
-        <CapField focus={focus} onFocus={changeFocus} />
+        <CapField
+          focus={focus}
+          flipped={flipped}
+          onFocus={changeFocus}
+          onFlip={toggleFlip}
+        />
 
         {/*
           A built environment — zero bytes over the wire. An environment map is what a

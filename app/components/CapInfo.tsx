@@ -116,13 +116,19 @@ export default function CapInfo({
         </p>
       )}
 
-      <button
-        onClick={onClose}
-        className="self-start text-[11px] uppercase tracking-[0.18em] text-ink-3
-                   transition-[color,transform] duration-150 ease-out hover:text-ink active:scale-[0.97]"
-      >
-        Close
-      </button>
+      <div className="flex items-center gap-5">
+        <button
+          onClick={onClose}
+          className="text-[11px] uppercase tracking-[0.18em] text-ink-3
+                     transition-[color,transform] duration-150 ease-out hover:text-ink active:scale-[0.97]"
+        >
+          Close
+        </button>
+        {/* The reveal is the point of the whole thing — it should not be a secret. */}
+        <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
+          Tap the cap to turn it over
+        </p>
+      </div>
     </aside>
   );
 }

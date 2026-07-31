@@ -63,6 +63,9 @@ export const FIELD = {
   PULL: 0.08,
   /** how far it rises toward the viewer */
   LIFT: 0.3,
+  /** depth spread as a fraction of cap diameter — small, but it is what lets caps
+   *  sit both in front of and behind the hero type at z = 0 */
+  DEPTH: 0.55,
   /** attraction radius as a multiple of cell size */
   SIGMA: 1.9,
   /** Base tilt. Zero — caps sit upright and face the viewer.

@@ -19,8 +19,31 @@ export function hash2(x: number, y: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** Second, decorrelated stream for the same cell (jitter shouldn't track identity). */
+/** Second, decorrelated stream for the same cell (spin rate shouldn't track identity). */
 export const hash2b = (x: number, y: number) => hash2(x + 9871, y - 3457);
+
+/**
+ * Which cap belongs in an absolute cell.
+ *
+ * NOT a hash. Uniform random assignment clumps — with 14 caps over ~40 visible cells
+ * you get ~3 copies of each on screen and duplicates land side by side constantly,
+ * which reads as a bug rather than as a pattern.
+ *
+ * Instead, index a modular lattice: `(A·col + B·row) mod n`. With A and B coprime to
+ * n = 14, this guarantees:
+ *   - every cap appears exactly once per 14 cells along any row or column
+ *   - no two neighbours ever match, orthogonally OR diagonally (steps of 3, 5, 8, 2)
+ *   - perfectly even density — the same count of every cap in any large region
+ *   - the nearest repeat of any cap is √10 ≈ 3.2 cells away
+ *
+ * Repetition is unavoidable on an infinite field with 14 caps. Evenly spread, it reads
+ * as a printed catalogue; clumped, it reads as broken. Spin phase still comes from the
+ * hash, so the regularity never looks stamped.
+ */
+export const LATTICE_A = 3;
+export const LATTICE_B = 5;
+export const capAt = (col: number, row: number, n: number) =>
+  (((LATTICE_A * col + LATTICE_B * row) % n) + n) % n;
 
 /** Frame-rate independent damping factor. Never use `k * dt` directly. */
 export const damp = (k: number, dt: number) => 1 - Math.exp(-k * dt);

@@ -4,8 +4,9 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader, MeshoptDecoder } from 'three-stdlib';
 import { CAPS } from '../data/caps';
-import { FIELD, damp, falloff, hash2, hash2b, wrap } from './capField';
+import { FIELD, capAt, damp, falloff, hash2, hash2b, wrap } from './capField';
 import { makeRulesConfig, useTokenColor } from './GridRules';
 import CapInfo from './CapInfo';
 
@@ -27,58 +28,108 @@ const outerCounts = new Int32Array(CAPS.length);
 
 // ---------------------------------------------------------------------------
 
+export type CapGeometry = { outerGeo: THREE.BufferGeometry; innerGeo: THREE.BufferGeometry };
+
+/**
+ * Splits a loaded cap into its two slots and normalises it.
+ *
+ * Shared by both LODs on purpose: cap-lo and cap-hi MUST come out of here with
+ * identical orientation, centre and scale, or swapping to the hi mesh on focus
+ * would visibly jump.
+ */
+function prepareCapGeometry(scene: THREE.Object3D): CapGeometry {
+  const found: THREE.Mesh[] = [];
+  scene.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) found.push(o as THREE.Mesh);
+  });
+
+  // Slot names survive the pipeline ("Outer Cork Material - Rusted.015"). Fall back
+  // to vertex count, since the outer crown is always the denser of the two.
+  const isOuter = (m: THREE.Mesh) => {
+    const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+    return /outer/i.test(mat?.name ?? '');
+  };
+  let outer = found.find(isOuter);
+  let inner = found.find((m) => m !== outer);
+  if (!outer || !inner) {
+    const sorted = [...found].sort(
+      (a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count,
+    );
+    [outer, inner] = sorted;
+  }
+
+  // The cap's axis is +Y (measured from the normals: 2834 verts face +Y vs 328 at
+  // -Y, so the printed face is +Y). rotateX(+PI/2) swings that face to +Z, toward
+  // the camera.
+  //
+  // But it also maps the cap's local +Z — which is the artwork's "up" — onto -Y,
+  // i.e. straight down, so every logo lands upside down. rotateZ(PI) spins it back
+  // in-plane without disturbing the face direction.
+  const outerGeo = outer.geometry.clone();
+  const innerGeo = inner.geometry.clone();
+  for (const g of [outerGeo, innerGeo]) {
+    g.rotateX(Math.PI / 2);
+    g.rotateZ(Math.PI);
+  }
+
+  outerGeo.computeBoundingBox();
+  const bb = outerGeo.boundingBox!;
+  const diameter = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y);
+  const cx = (bb.max.x + bb.min.x) / 2;
+  const cy = (bb.max.y + bb.min.y) / 2;
+  const cz = (bb.max.z + bb.min.z) / 2;
+  for (const g of [outerGeo, innerGeo]) {
+    g.translate(-cx, -cy, -cz);
+    g.scale(1 / diameter, 1 / diameter, 1 / diameter);
+    g.computeBoundingSphere();
+  }
+
+  return { outerGeo, innerGeo };
+}
+
 function useCapGeometry() {
   const { scene } = useGLTF('/cap-lo.glb');
+  return useMemo(() => prepareCapGeometry(scene), [scene]);
+}
 
-  return useMemo(() => {
-    const found: THREE.Mesh[] = [];
-    scene.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) found.push(o as THREE.Mesh);
+/**
+ * Fetches the 50k-triangle mesh the first time a cap is focused, never on load.
+ *
+ * Loaded imperatively rather than through `useGLTF`, which suspends — suspending here
+ * would blank the whole field mid-transition. Instead the focused cap keeps using the
+ * 4k grid mesh until this resolves, then swaps silently.
+ */
+function useHiGeometry(wanted: boolean): CapGeometry | null {
+  const [geo, setGeo] = useState<CapGeometry | null>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!wanted || started.current) return;
+    started.current = true;
+
+    let cancelled = false;
+    const loader = new GLTFLoader();
+    loader.setMeshoptDecoder(
+      typeof MeshoptDecoder === 'function' ? MeshoptDecoder() : MeshoptDecoder,
+    );
+    loader.load('/cap-hi.glb', (gltf) => {
+      if (!cancelled) setGeo(prepareCapGeometry(gltf.scene));
     });
 
-    // Slot names survive the pipeline ("Outer Cork Material - Rusted.015"). Fall back
-    // to vertex count, since the outer crown is always the denser of the two.
-    const isOuter = (m: THREE.Mesh) => {
-      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
-      return /outer/i.test(mat?.name ?? '');
+    return () => {
+      cancelled = true;
     };
-    let outer = found.find(isOuter);
-    let inner = found.find((m) => m !== outer);
-    if (!outer || !inner) {
-      const sorted = [...found].sort(
-        (a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count,
-      );
-      [outer, inner] = sorted;
-    }
+  }, [wanted]);
 
-    // The cap's axis is +Y (measured from the normals: 2834 verts face +Y vs 328 at
-    // -Y, so the printed face is +Y). rotateX(+PI/2) swings that face to +Z, toward
-    // the camera.
-    //
-    // But it also maps the cap's local +Z — which is the artwork's "up" — onto -Y,
-    // i.e. straight down, so every logo lands upside down. rotateZ(PI) spins it back
-    // in-plane without disturbing the face direction.
-    const outerGeo = outer.geometry.clone();
-    const innerGeo = inner.geometry.clone();
-    for (const g of [outerGeo, innerGeo]) {
-      g.rotateX(Math.PI / 2);
-      g.rotateZ(Math.PI);
-    }
+  useEffect(
+    () => () => {
+      geo?.outerGeo.dispose();
+      geo?.innerGeo.dispose();
+    },
+    [geo],
+  );
 
-    outerGeo.computeBoundingBox();
-    const bb = outerGeo.boundingBox!;
-    const diameter = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y);
-    const cx = (bb.max.x + bb.min.x) / 2;
-    const cy = (bb.max.y + bb.min.y) / 2;
-    const cz = (bb.max.z + bb.min.z) / 2;
-    for (const g of [outerGeo, innerGeo]) {
-      g.translate(-cx, -cy, -cz);
-      g.scale(1 / diameter, 1 / diameter, 1 / diameter);
-      g.computeBoundingSphere();
-    }
-
-    return { outerGeo, innerGeo };
-  }, [scene]);
+  return geo;
 }
 
 /** Streams the 14 grid textures in, so caps reveal progressively (DESIGN.md §7). */
@@ -129,7 +180,12 @@ function CapField({
   onFocus: (f: Focus | null) => void;
 }) {
   const { outerGeo, innerGeo } = useCapGeometry();
+  const hi = useHiGeometry(focus !== null);
   const textures = useCapTextures();
+
+  /** The promoted focused cap: full-detail mesh, same transform, same spin angle. */
+  const heroRef = useRef<THREE.Group>(null);
+  const heroOuterRef = useRef<THREE.Mesh>(null);
   const viewport = useThree((s) => s.viewport);
   const size = useThree((s) => s.size);
   const domElement = useThree((s) => s.gl.domElement);
@@ -342,8 +398,7 @@ function CapField({
         const cell = layout.cell;
         const col = Math.round((wx + s.ox) / cell - 0.5);
         const row = Math.round((wy + s.oy) / cell - 0.5);
-        const h = hash2(col, row);
-        onFocus({ col, row, capIdx: Math.min(Math.floor(h * CAPS.length), CAPS.length - 1) });
+        onFocus({ col, row, capIdx: capAt(col, row, CAPS.length) });
       }
     };
     const leave = () => {
@@ -439,6 +494,11 @@ function CapField({
     let innerCount = 0;
     outerCounts.fill(0);
 
+    // Only take over once the hi mesh has actually arrived; until then the focused
+    // cap stays in the instanced field on the lo mesh.
+    const hero = active && hi ? heroRef.current : null;
+    if (heroRef.current) heroRef.current.visible = hero !== null;
+
     for (let j = 0; j < rows && innerCount < MAX_INSTANCES; j++) {
       for (let i = 0; i < cols && innerCount < MAX_INSTANCES; i++) {
         const slot = j * cols + i;
@@ -451,9 +511,9 @@ function CapField({
         // Identity comes from the ABSOLUTE cell, so it survives wrapping.
         const absCol = Math.round((x + s.ox) / cell - 0.5);
         const absRow = Math.round((y + s.oy) / cell - 0.5);
-        const h = hash2(absCol, absRow);
-        const hb = hash2b(absCol, absRow);
-        const capIdx = Math.min(Math.floor(h * CAPS.length), CAPS.length - 1);
+        const h = hash2(absCol, absRow); // spin phase only
+        const hb = hash2b(absCol, absRow); // spin rate only
+        const capIdx = capAt(absCol, absRow, CAPS.length);
 
         // Cursor attraction — gaussian, so there is no visible radius edge. Ramped out
         // while focused, or the blurred field twitches under the info panel.
@@ -510,6 +570,18 @@ function CapField({
         dummy.scale.setScalar(scale);
         dummy.updateMatrix();
 
+        // Once the hi-res mesh is available, the focused cap is drawn by the hero
+        // group instead of as an instance. Both are driven from this same `dummy`, so
+        // the handover is invisible — including the spin angle, which is a pure
+        // function of time and therefore identical on both sides.
+        if (isFocused && hero) {
+          hero.position.copy(dummy.position);
+          hero.rotation.copy(dummy.rotation);
+          hero.scale.copy(dummy.scale);
+          if (heroOuterRef.current) heroOuterRef.current.material = outerMats[capIdx];
+          continue; // skip the instanced copy
+        }
+
         innerRef.current?.setMatrixAt(innerCount++, dummy.matrix);
         const om = outerRefs.current[capIdx];
         if (om && outerCounts[capIdx] < MAX_PER_CAP) {
@@ -556,6 +628,15 @@ function CapField({
           depthWrite={false}
         />
       </mesh>
+
+      {/* The focused cap at full detail (50k tris vs the grid's 4k), so the crimped
+          rim holds up when it is enlarged. Fetched on first focus only. */}
+      {hi && (
+        <group ref={heroRef} visible={false}>
+          <mesh ref={heroOuterRef} geometry={hi.outerGeo} material={outerMats[0]} />
+          <mesh geometry={hi.innerGeo} material={innerMat} />
+        </group>
+      )}
 
       <instancedMesh
         ref={innerRef}

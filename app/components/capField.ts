@@ -45,6 +45,8 @@ export const LATTICE_B = 5;
 export const capAt = (col: number, row: number, n: number) =>
   (((LATTICE_A * col + LATTICE_B * row) % n) + n) % n;
 
+export const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+
 /** Frame-rate independent damping factor. Never use `k * dt` directly. */
 export const damp = (k: number, dt: number) => 1 - Math.exp(-k * dt);
 
@@ -63,9 +65,15 @@ export const FIELD = {
   PULL: 0.08,
   /** how far it rises toward the viewer */
   LIFT: 0.3,
-  /** depth spread as a fraction of cap diameter — small, but it is what lets caps
-   *  sit both in front of and behind the hero type at z = 0 */
-  DEPTH: 0.55,
+  /** Depth spread as a fraction of cap diameter. Purely for a sense of a physical
+   *  pile — caps stay centred in their boxes, they just sit slightly nearer or
+   *  further. Deliberately small: the type plane is placed clear of the deepest cap,
+   *  and a large spread would push it implausibly far back. */
+  DEPTH: 0.3,
+  /** Ceiling on flick/scroll speed, in cells per second. Without it a fast flick
+   *  produces an unbounded velocity, the field crosses many cells per frame, and
+   *  every cap snaps rather than eases — which reads as tearing, not speed. */
+  MAX_SPEED: 9,
   /** attraction radius as a multiple of cell size */
   SIGMA: 1.9,
   /** Base tilt. Zero — caps sit upright and face the viewer.

@@ -6,10 +6,14 @@ import * as THREE from 'three';
 /**
  * The hero line, drawn to a canvas and hung in the scene at z = 0.
  *
- * It lives IN the 3D scene rather than as a DOM overlay so caps can pass in front of
- * and behind the letterforms — that interleaving is the whole reason the reference
- * poster reads as a physical object rather than text on a picture. A DOM overlay is
- * always in front and would lose it.
+ * It lives IN the 3D scene rather than as a DOM overlay so it shares the caps'
+ * perspective and depth — it is printed on the same wall the caps are sitting on,
+ * and it dims behind the focus scrim like everything else in the scene.
+ *
+ * It sits BEHIND every cap. An earlier version put it at z = 0 to interleave with
+ * them, but a cap spinning about Y sweeps its full diameter through Z, so the plane
+ * cut straight through the mesh. The reference poster has caps resting on top of
+ * printed type anyway — nothing is woven through.
  *
  * Canvas texture rather than troika/drei <Text>: no new dependency, no second font
  * fetch, and it reuses the Instrument Serif already loaded by next/font.
@@ -93,14 +97,16 @@ export default function TypeLayer({
   texture,
   materialRef,
   width,
+  z,
 }: {
   texture: THREE.CanvasTexture;
   materialRef: React.Ref<THREE.MeshBasicMaterial>;
   width: number;
+  z: number;
 }) {
   const height = (width * CANVAS_H) / CANVAS_W;
   return (
-    <mesh position={[0, 0, 0]} frustumCulled={false} renderOrder={-1}>
+    <mesh position={[0, 0, z]} frustumCulled={false} renderOrder={-1}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial
         ref={materialRef}

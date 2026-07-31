@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader, MeshoptDecoder } from 'three-stdlib';
 import { CAPS } from '../data/caps';
-import { FIELD, capAt, damp, falloff, hash2, hash2b, wrap } from './capField';
+import { FIELD, capAt, clamp, damp, falloff, hash2, hash2b, wrap } from './capField';
 import { makeRulesConfig, useTokenColor } from './GridRules';
 import CapInfo from './CapInfo';
 import TypeLayer, { useTitleTexture } from './TypeLayer';
@@ -17,12 +17,22 @@ import { useRevealTexture } from './RevealTexture';
 const MAX_INSTANCES = 190;
 const MAX_PER_CAP = 72;
 
-/** Depth of the ruled plane, behind the caps (which sit at z = 0). */
-const RULES_Z = -0.6;
+/**
+ * Depth planes, expressed as multiples of cap diameter D so they hold at any
+ * viewport size.
+ *
+ * A cap spinning about Y sweeps its whole DIAMETER through Z — edge-on it occupies
+ * ±0.5·D of depth, not its thickness. Anything sharing that range gets sliced by the
+ * mesh, which is what put the hero letters visibly through the caps. The type plane
+ * therefore sits clear behind the deepest cap: 0.5·D for the sweep, plus half the
+ * depth spread, plus margin. Caps then sit ON the type, exactly like objects on a
+ * printed wall in the reference poster.
+ */
+const TYPE_Z_D = -(0.5 + FIELD.DEPTH / 2 + 0.22);
+const RULES_Z_D = TYPE_Z_D - 0.55;
 /** Where a focused cap travels to, and the scrim that separates it from the field. */
 const FOCUS_Z = 3.1;
 const SCRIM_Z = 1.6;
-const FOCUS_SCALE = 1.95;
 
 /** Scratch, module-scoped to keep the frame loop allocation-free. */
 const target = [0, 0, 0];
@@ -358,7 +368,31 @@ function CapField({
     const cell = viewport.width / across;
     const cols = Math.min(Math.ceil(viewport.width / cell) + 2, 20);
     const rows = Math.min(Math.ceil(viewport.height / cell) + 2, 20);
-    return { cell, cols, rows, spanX: cols * cell, spanY: rows * cell };
+    const D = cell * FIELD.CAP_IN_CELL;
+    const narrow = viewport.width < viewport.height;
+
+    // Where a focused cap parks. The info panel and the cap must never share space:
+    // on a phone the panel is a bottom sheet, so the cap moves into the upper part of
+    // the screen; on desktop the panel is a right-hand column, so the cap shifts left.
+    // Getting this wrong makes the cap unreadable AND untappable, which kills the flip.
+    const focusX = narrow ? 0 : -viewport.width * 0.17;
+    const focusY = narrow ? viewport.height * 0.2 : 0;
+    const focusScale = narrow ? 1.45 : 1.95;
+
+    return {
+      cell,
+      cols,
+      rows,
+      D,
+      narrow,
+      focusX,
+      focusY,
+      focusScale,
+      spanX: cols * cell,
+      spanY: rows * cell,
+      typeZ: TYPE_Z_D * D,
+      rulesZ: RULES_Z_D * D,
+    };
   }, [viewport.width, viewport.height]);
 
   // Input, bound to the canvas itself.
@@ -400,10 +434,14 @@ function CapField({
       s.oy += dy;
       travelled.current += Math.hypot(dx, dy);
 
+      // Velocity from the last pointer segment, clamped. An unbounded flick sends
+      // the field across many cells per frame, at which point every cap snaps to its
+      // new cell instead of easing and the whole grid appears to tear.
       const now = performance.now();
       const dt = Math.max((now - drag.t) / 1000, 1 / 240);
-      s.vx = -dx / dt;
-      s.vy = dy / dt;
+      const cap = FIELD.MAX_SPEED * layout.cell;
+      s.vx = clamp(-dx / dt, -cap, cap);
+      s.vy = clamp(dy / dt, -cap, cap);
       drag.x = e.clientX;
       drag.y = e.clientY;
       drag.t = now;
@@ -421,9 +459,17 @@ function CapField({
           // While focused the field behind the scrim is inert. Clicking the cap itself
           // flips it to the message under the crown; clicking away dismisses. Nothing
           // re-targets focus to whatever happens to sit underneath.
-          const cx = r0.left + r0.width / 2;
-          const cy = r0.top + r0.height / 2;
-          const hit = Math.min(r0.width, r0.height) * 0.22;
+          //
+          // The target is wherever the cap actually parked, projected to screen —
+          // testing the centre of the viewport would miss it entirely on mobile,
+          // where the cap sits high to clear the bottom sheet.
+          const cx = r0.left + r0.width * (0.5 + layout.focusX / viewport.width);
+          const cy = r0.top + r0.height * (0.5 - layout.focusY / viewport.height);
+          // The cap is nearer the camera than the z = 0 plane the viewport describes,
+          // so it covers more screen than its world radius suggests.
+          const magnify = camZ / (camZ - FOCUS_Z);
+          const worldR = (layout.D * layout.focusScale * magnify) / 2;
+          const hit = (worldR / viewport.width) * r0.width * 1.05;
           if (Math.hypot(e.clientX - cx, e.clientY - cy) < hit) onFlip();
           else onFocus(null);
           return;
@@ -449,8 +495,13 @@ function CapField({
       e.preventDefault();
       if (focus) return;
       const s = input.current;
-      s.ox += e.deltaX * k();
-      s.oy -= e.deltaY * k();
+
+      // deltaMode varies by device: 0 = pixels (trackpads), 1 = lines, 2 = pages.
+      // Without normalising, a line-mode mouse crawls and a page-mode one teleports.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? size.height : 1;
+      const step = size.height * 0.35; // ceiling on how far one notch may throw it
+      s.ox += clamp(e.deltaX * unit, -step, step) * k();
+      s.oy -= clamp(e.deltaY * unit, -step, step) * k();
       s.vx = 0;
       s.vy = 0;
     };
@@ -469,7 +520,7 @@ function CapField({
       el.removeEventListener('pointerleave', leave);
       el.removeEventListener('wheel', wheel);
     };
-  }, [domElement, viewport.width, viewport.height, size.height, layout, onFocus, onFlip, focus]);
+  }, [domElement, viewport.width, viewport.height, size.height, camZ, layout, onFocus, onFlip, focus]);
 
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 1 / 30); // clamp so a stall doesn't teleport the field
@@ -500,19 +551,20 @@ function CapField({
       scrim.visible = ease.current > 0.005;
     }
 
-    // Inertia after release.
+    // Inertia after release, with the same speed ceiling as the drag itself so a
+    // long fling cannot outrun it.
     if (!s.dragging && !focus) {
       const decay = Math.exp(-FIELD.DAMP_DRAG * dt);
-      s.vx *= decay;
-      s.vy *= decay;
+      const vMax = FIELD.MAX_SPEED * layout.cell;
+      s.vx = clamp(s.vx * decay, -vMax, vMax);
+      s.vy = clamp(s.vy * decay, -vMax, vMax);
       if (Math.abs(s.vx) < 1e-4) s.vx = 0;
       if (Math.abs(s.vy) < 1e-4) s.vy = 0;
       s.ox += s.vx * dt;
       s.oy += s.vy * dt;
     }
 
-    const { cell, cols, rows, spanX, spanY } = layout;
-    const D = cell * FIELD.CAP_IN_CELL; // cap diameter — comfortably inside its box
+    const { cell, cols, rows, spanX, spanY, D, rulesZ } = layout;
     const spinBase = (Math.PI * 2) / FIELD.REV_SECONDS;
     const t = performance.now() / 1000;
 
@@ -523,7 +575,7 @@ function CapField({
     // centre of the screen. A grid of cell `c` at depth `d1` projects identically to a
     // grid of cell `c * d2/d1` at depth `d2`, so pre-scaling by the depth ratio makes
     // the lines line up exactly, everywhere.
-    const persp = (camZ - RULES_Z) / camZ;
+    const persp = (camZ - rulesZ) / camZ;
     const rules = rulesRef.current;
     if (rules) {
       rules.uniforms.uCell.value = cell * persp;
@@ -616,10 +668,10 @@ function CapField({
         let scale = D * (1 + w * 0.06);
         if (isFocused) {
           const f = ease.current;
-          px += (0 - px) * f;
-          py += (0 - py) * f;
+          px += (layout.focusX - px) * f;
+          py += (layout.focusY - py) * f;
           pz += (FOCUS_Z - pz) * f;
-          scale += (D * FOCUS_SCALE - scale) * f;
+          scale += (D * layout.focusScale - scale) * f;
         }
 
         dummy.position.set(px, py, pz);
@@ -669,7 +721,7 @@ function CapField({
     <>
       {/* Ruled cells, sat behind the caps. Faint — the reference poster is a bare wall,
           so these are a hint of a catalogue plate, not a spreadsheet. */}
-      <mesh position={[0, 0, RULES_Z]} frustumCulled={false}>
+      <mesh position={[0, 0, layout.rulesZ]} frustumCulled={false}>
         <planeGeometry args={[viewport.width * 2, viewport.height * 2]} />
         <shaderMaterial ref={rulesRef} args={rulesArgs} />
       </mesh>
@@ -692,7 +744,14 @@ function CapField({
       {/* The focused cap at full detail (50k tris vs the grid's 4k), so the crimped
           rim holds up when it is enlarged. Fetched on first focus only. */}
       {titleTex && (
-        <TypeLayer texture={titleTex} materialRef={titleMatRef} width={viewport.width * 0.82} />
+        <TypeLayer
+          texture={titleTex}
+          materialRef={titleMatRef}
+          z={layout.typeZ}
+          // Sitting further from the camera shrinks it on screen; scale by the depth
+          // ratio so it still occupies the intended fraction of the viewport.
+          width={viewport.width * (layout.narrow ? 0.94 : 0.82) * ((camZ - layout.typeZ) / camZ)}
+        />
       )}
 
       {hi && (

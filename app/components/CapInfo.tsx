@@ -69,9 +69,12 @@ export default function CapInfo({
         transitionDuration: visible ? '420ms' : '260ms',
         transitionDelay: visible ? '160ms' : '0ms',
       }}
-      className={`pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex flex-col gap-5 p-7
+      className={`pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex max-h-[56dvh] touch-auto
+                  flex-col gap-5 overflow-y-auto overscroll-contain border-t border-paper-edge
+                  bg-paper px-6 pb-7 pt-6
                   transition-[opacity,transform] will-change-transform
-                  sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(30rem,42vw)] sm:justify-center sm:p-12
+                  sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[min(30rem,42vw)]
+                  sm:justify-center sm:overflow-visible sm:border-t-0 sm:bg-transparent sm:p-12
                   ${visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}
     >
       <div className="flex flex-col gap-1">
@@ -83,6 +86,11 @@ export default function CapInfo({
             {cap.variant}
           </p>
         )}
+        {/* The reveal is the point of the whole thing, and on a phone the panel
+            scrolls — so the hint sits with the title, never below the fold. */}
+        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-ink-3">
+          Tap the cap to turn it over
+        </p>
       </div>
 
       {cap.blurb && <p className="max-w-[52ch] text-[15px] leading-7 text-ink-2">{cap.blurb.value}</p>}
@@ -116,19 +124,13 @@ export default function CapInfo({
         </p>
       )}
 
-      <div className="flex items-center gap-5">
-        <button
-          onClick={onClose}
-          className="text-[11px] uppercase tracking-[0.18em] text-ink-3
-                     transition-[color,transform] duration-150 ease-out hover:text-ink active:scale-[0.97]"
-        >
-          Close
-        </button>
-        {/* The reveal is the point of the whole thing — it should not be a secret. */}
-        <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
-          Tap the cap to turn it over
-        </p>
-      </div>
+      <button
+        onClick={onClose}
+        className="self-start text-[11px] uppercase tracking-[0.18em] text-ink-3
+                   transition-[color,transform] duration-150 ease-out hover:text-ink active:scale-[0.97]"
+      >
+        Close
+      </button>
     </aside>
   );
 }

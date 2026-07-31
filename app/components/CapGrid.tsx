@@ -37,6 +37,7 @@ const SCRIM_Z = 1.6;
 
 /** Scratch, module-scoped to keep the frame loop allocation-free. */
 const target = [0, 0, 0];
+const TAU = Math.PI * 2;
 const outerCounts = new Int32Array(CAPS.length);
 
 // ---------------------------------------------------------------------------
@@ -260,6 +261,18 @@ function CapField({
    * simply vanish from the focus position instead of shrinking home.
    */
   const held = useRef<Focus | null>(null);
+  /**
+   * The focused cap's own integrated spin angle.
+   *
+   * The field's angle is a pure function of time, which is right for 50 caps that
+   * never deviate. A focused cap does deviate — it slows to a stop when flipped and
+   * has to rejoin afterwards — so it needs a real integrated angle with an eased
+   * RATE. Scaling the time-based angle instead (the previous approach) meant rapid
+   * flipping could strand it stopped, and the unwind got faster the longer the page
+   * had been open, because the angle it was scaling kept growing.
+   */
+  const heroAngle = useRef(0);
+  const heroSynced = useRef(false);
 
   const outerRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const innerRef = useRef<THREE.InstancedMesh>(null);
@@ -479,9 +492,15 @@ function CapField({
           // so it covers more screen than its world radius suggests.
           const magnify = camZ / (camZ - FOCUS_Z);
           const worldR = (layout.D * layout.focusScale * magnify) / 2;
-          const hit = (worldR / viewport.width) * r0.width * 1.05;
-          if (Math.hypot(e.clientX - cx, e.clientY - cy) < hit) onFlip();
-          else onFocus(null);
+          const capR = (worldR / viewport.width) * r0.width;
+          const d = Math.hypot(e.clientX - cx, e.clientY - cy);
+
+          // Three regions, not two. Inside the cap flips it; far outside dismisses;
+          // the ring between them does NOTHING. Without that dead zone a slightly
+          // missed tap on the cap closes the whole view, which is a punishing way to
+          // lose your place — and near-misses are common on a phone.
+          if (d < capR * FIELD.FLIP_HIT) onFlip();
+          else if (d > capR * FIELD.DISMISS_GAP) onFocus(null);
           return;
         }
         const r = el.getBoundingClientRect();
@@ -542,10 +561,11 @@ function CapField({
     if (!focus && ease.current < 0.002) {
       ease.current = 0;
       held.current = null; // fully home; release it back to the field
+      heroSynced.current = false;
     }
     // Flip ramp toward the under-crown message, and the hero type fading out once
     // the user starts exploring — the title has done its job by then.
-    flipRamp.current += ((flipped ? 1 : 0) - flipRamp.current) * damp(5, dt);
+    flipRamp.current += ((flipped ? 1 : 0) - flipRamp.current) * damp(FIELD.FLIP_SPEED, dt);
     if (!s.dragging) travelled.current += Math.hypot(s.vx, s.vy) * dt;
     const titleMat = titleMatRef.current;
     if (titleMat) {
@@ -666,12 +686,41 @@ function CapField({
 
         // Spin: a pure function of elapsed time, so it is monotonic and never resets —
         // focusing a cap changes where it is, never where it is in its rotation.
-        const raw = t * spinBase * (0.85 + hb * 0.3) + h * Math.PI * 2;
+        const rateMul = 0.85 + hb * 0.3;
+        const raw = t * spinBase * rateMul + h * TAU;
         const spin = raw - FIELD.SPIN_DWELL * Math.sin(raw); // dwell face-on, sweep the back
         const flip = (1 - reveal.current[capIdx]) * Math.PI;
 
         // Focused cap: same instance, eased toward the viewer. Nothing is recreated.
         const isFocused = active !== null && absCol === active.col && absRow === active.row;
+
+        // The focused cap runs on its own integrated angle so it can slow, settle and
+        // rejoin without ever jumping. Everything else stays on the time-based angle.
+        let shown = spin;
+        if (isFocused) {
+          if (!heroSynced.current) {
+            heroAngle.current = spin; // adopt the exact angle it was already at
+            heroSynced.current = true;
+          }
+          // Instantaneous rate of the dwell-warped spin.
+          const rate = spinBase * rateMul * (1 - FIELD.SPIN_DWELL * Math.cos(raw));
+          heroAngle.current += rate * (1 - flipRamp.current) * dt;
+
+          if (flipRamp.current > 0.01) {
+            // Turned over: settle square-on, or the message ends up edge-on and
+            // unreadable. Face-on is any whole multiple of a turn.
+            const square = Math.round(heroAngle.current / TAU) * TAU;
+            heroAngle.current +=
+              (square - heroAngle.current) * damp(FIELD.FLIP_SETTLE, dt) * flipRamp.current;
+          } else {
+            // Released: converge back onto the field's angle. Target the equivalent
+            // turn nearest the current angle so it eases forward into step rather
+            // than rewinding through a full revolution.
+            const rejoin = spin + Math.round((heroAngle.current - spin) / TAU) * TAU;
+            heroAngle.current += (rejoin - heroAngle.current) * damp(FIELD.SPIN_REJOIN, dt);
+          }
+          shown = heroAngle.current;
+        }
         let px = sm[o];
         let py = sm[o + 1];
         let pz = sm[o + 2];
@@ -685,7 +734,7 @@ function CapField({
         }
 
         dummy.position.set(px, py, pz);
-        dummy.rotation.set(FIELD.TILT + flip, spin, 0);
+        dummy.rotation.set(FIELD.TILT + flip, shown, 0);
         dummy.scale.setScalar(scale);
         dummy.updateMatrix();
 
@@ -695,13 +744,7 @@ function CapField({
         // function of time and therefore identical on both sides.
         if (isFocused && hero) {
           hero.position.copy(dummy.position);
-          hero.rotation.copy(dummy.rotation);
-          // Turn it over onto its back, and unwind the spin as it goes. You flip a cap
-          // in order to READ what is under the crown, so it has to settle facing you —
-          // a message that keeps rotating away is a message nobody reads. Scaling the
-          // angle rather than zeroing the rate keeps the motion smooth in both
-          // directions and returns it to the live spin on unflip.
-          hero.rotation.y = spin * (1 - flipRamp.current);
+          hero.rotation.copy(dummy.rotation); // already carries the integrated angle
           hero.rotation.x += flipRamp.current * Math.PI;
           hero.scale.copy(dummy.scale);
           if (heroOuterRef.current) heroOuterRef.current.material = outerMats[capIdx];

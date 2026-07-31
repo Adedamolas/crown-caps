@@ -280,12 +280,38 @@ everything there is magnified by `camZ / (camZ - FOCUS_Z)` — roughly 2×. Plac
 directly in world units overshoots by exactly that factor and throws the cap off-screen. The
 flip hit-test needs the same correction, or it tests a point the cap is nowhere near.
 
-### Flipping settles the spin
+### The focused cap gets its own integrated angle
 
-Turning a cap over eases its Y rotation to zero as the flip completes. You flip a cap in order to
-READ what is under the crown; a message that keeps rotating away is a message nobody reads. Scale
-the angle by `(1 - flipRamp)` rather than zeroing the rate — smooth in both directions, and it
-hands straight back to the live spin on unflip.
+The field's spin is a pure function of time, which is right for fifty caps that never deviate. A
+focused cap *does* deviate — it slows to a stop when flipped and must rejoin afterwards — so it
+runs its own **integrated** angle with an eased rate:
+
+```ts
+heroAngle += rate * (1 - flipRamp) * dt;          // rate eased, value integrated
+```
+
+⚠️ **Do not scale the time-based angle instead** (`spin * (1 - flipRamp)`). That was the first
+attempt and it fails two ways: rapid flipping can strand the cap stopped, and the unwind gets
+faster the longer the page has been open, because the angle being scaled keeps growing. This is
+§1's rule — animate the derivative, never the value — and the focused cap is exactly where
+breaking it shows.
+
+Two corrections layer on top:
+
+- **Flipped** → settle to the nearest whole turn. Stopping wherever it happened to be leaves the
+  message edge-on and unreadable. Face-on is any multiple of `2π`.
+- **Released** → converge back onto the field angle, targeting the equivalent turn *nearest* the
+  current angle. Without that nearest-turn step it rewinds through a whole revolution to get back
+  into step. This is also what makes closing focus mid-spin ease rather than snap.
+
+`heroAngle` adopts the cap's exact current angle on promotion, so entering focus never jumps
+either.
+
+### Flip and dismiss are three regions, not two
+
+Inside the cap flips it. Far outside dismisses. **The ring between them does nothing.** Without a
+dead zone a slightly missed tap closes the whole view, which is a punishing way to lose your
+place, and near-misses are common on a phone. See `FIELD.FLIP_HIT` and `FIELD.DISMISS_GAP`.
 
 The liner is only ever seen through a 180° flip about X, which maps local +y to screen −y. With
 the default `flipY` the canvas top lands at the bottom and the message reads mirrored; the reveal

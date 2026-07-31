@@ -91,6 +91,21 @@ export const FIELD = {
    * most of the time. 0 = uniform spin, 0.9 = a hard snap to face-on.
    */
   SPIN_DWELL: 0.62,
+  /** How fast a cap turns over when tapped. Deliberately unhurried — this is the
+   *  reveal, and it should feel like turning something over in your hand. */
+  FLIP_SPEED: 2.4,
+  /** How firmly a flipped cap settles square-on so the message can be read. */
+  FLIP_SETTLE: 3.2,
+  /** How quickly a released cap rejoins the field's ambient spin. */
+  SPIN_REJOIN: 2.2,
+
+  /** Tap radius for the flip, as a multiple of the cap's on-screen radius. */
+  FLIP_HIT: 1.15,
+  /** Everything beyond this dismisses. Between the two is a dead zone: a near-miss
+   *  on the cap does nothing rather than closing the whole view, because losing
+   *  focus by fat-fingering the flip is a genuinely annoying way to lose your place. */
+  DISMISS_GAP: 1.9,
+
   /** damping rates */
   DAMP_POS: 6,
   DAMP_DRAG: 3.5,

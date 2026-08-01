@@ -1,6 +1,10 @@
 /**
  * Cap inventory. See docs/ASSETS.md §4 for the record shape.
  *
+ * ⚠️ `disputed`, `blurb`, `history` and every `value` RENDER VERBATIM ON THE SITE.
+ * Visitor-facing prose only — never a filename, a doc section, an internal note or a
+ * texture name. `note` is the safe place for working detail; it is never rendered.
+ *
  * SOURCING RULES (CLAUDE.md §8):
  * - Every factual field is `Sourced<T>` and carries a URL. `note` holds the exact
  *   supporting sentence from that source, so any claim can be re-checked fast.
@@ -171,12 +175,18 @@ export const CAPS: Cap[] = [
     texture: '7up-old',
     name: '7up',
     variant: '₦25',
-    bottler: { value: 'Seven-Up Bottling Company', source: SEVENUP },
+    bottler: {
+      value: 'Seven-Up Bottling Company',
+      source: SEVENUP,
+      note: 'The artwork is a 7up cap — embedded texture "N25 7UP COVER". CLAUDE.md §9 previously listed ₦25 as a separate brand; it is not.',
+    },
+    // NOTE: `disputed` renders verbatim on the site. Visitor-facing prose only —
+    // no internal references, no filenames, no doc sections. An earlier version of
+    // this string cited CLAUDE.md and a texture name and shipped them to the page.
     disputed:
       'The ₦25 on this cap is unexplained. No source was found confirming whether it ' +
       'was a price marking, an under-crown promotional prize, or something else. ' +
-      'CLAUDE.md §9 previously listed "₦25" as a separate brand — it is not; the ' +
-      'artwork is a 7up cap (embedded texture "N25 7UP COVER").',
+      'The ₦25 is printed on a 7up cap rather than being a brand of its own.',
   },
   {
     slug: 'dew',

@@ -10,7 +10,7 @@
  * link previews silently break.
  */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://crown-caps.vercel.app'
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://crowncaps.info'
 ).replace(/\/$/, '');
 
 export const SITE = {

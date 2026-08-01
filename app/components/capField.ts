@@ -40,6 +40,16 @@ export const hash2b = (x: number, y: number) => hash2(x + 9871, y - 3457);
  * as a printed catalogue; clumped, it reads as broken. Spin phase still comes from the
  * hash, so the regularity never looks stamped.
  */
+/**
+ * ⚠️ A and B are tuned to n = 14 and MUST be re-checked if the cap count changes.
+ * At n = 15 this pair still avoids adjacent collisions but the nearest repeat becomes
+ * (0, -3) — purely vertical, every 3 rows, which reads as banding. A = 1, B = 4 gives
+ * 4.12 cells at n = 15, better than the current pair manages at 14.
+ *
+ * Verify with: for every (dc, dr), (A·dc + B·dr) mod n === 0 must have no solution
+ * among the four neighbour offsets, and the shortest solution overall is the repeat
+ * distance — maximise it.
+ */
 export const LATTICE_A = 3;
 export const LATTICE_B = 5;
 export const capAt = (col: number, row: number, n: number) =>

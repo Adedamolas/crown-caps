@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader, MeshoptDecoder } from 'three-stdlib';
 import { CAPS } from '../data/caps';
-import { FIELD, capAt, clamp, damp, falloff, hash2, hash2b, wrap } from './capField';
+import { FIELD, capAt, cellFor, clamp, damp, falloff, hash2, hash2b, wrap } from './capField';
 import { makeRulesConfig, useTokenColor } from './GridRules';
 import CapInfo from './CapInfo';
 import TypeLayer, { useTitleTexture } from './TypeLayer';
@@ -238,12 +238,14 @@ function CapField({
   focus,
   flipped,
   reduced,
+  initialCapIdx,
   onFocus,
   onFlip,
 }: {
   focus: Focus | null;
   flipped: boolean;
   reduced: boolean;
+  initialCapIdx: number | null;
   onFocus: (f: Focus | null) => void;
   onFlip: () => void;
 }) {
@@ -450,6 +452,23 @@ function CapField({
       rulesZ: RULES_Z_D * D,
     };
   }, [viewport.width, viewport.height, camZ]);
+
+  /**
+   * Deep link. Arriving at /cap/<slug> must land on a REAL cell of the infinite
+   * field, and the field must be scrolled so that cell is centred — otherwise
+   * closing focus sends the cap flying off to a slot that was never on screen.
+   * The transition is skipped: arriving focused is not the same gesture as focusing.
+   */
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || initialCapIdx === null) return;
+    opened.current = true;
+    const { col, row } = cellFor(initialCapIdx, CAPS.length);
+    input.current.ox = (col + 0.5) * layout.cell;
+    input.current.oy = (row + 0.5) * layout.cell;
+    ease.current = 1;
+    onFocus({ col, row, capIdx: initialCapIdx });
+  }, [initialCapIdx, layout.cell, onFocus]);
 
   // Input, bound to the canvas itself.
   useEffect(() => {
@@ -892,7 +911,13 @@ function CapField({
 
 // ---------------------------------------------------------------------------
 
-export default function CapGrid() {
+export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
+  const initialCapIdx = useMemo(() => {
+    if (!initialSlug) return null;
+    const i = CAPS.findIndex((c) => c.slug === initialSlug);
+    return i < 0 ? null : i;
+  }, [initialSlug]);
+
   const [focus, setFocus] = useState<Focus | null>(null);
   const [flipped, setFlipped] = useState(false);
   const reduced = useReducedMotion();
@@ -909,6 +934,14 @@ export default function CapGrid() {
     setFocus(next);
     setFlipped(false); // a new cap always arrives brand-side up
     if (next) play('open');
+
+    // Keep the address bar on the cap being looked at, so it can be shared. Uses
+    // replaceState rather than router navigation: the scene must not remount, and
+    // this is a change of view within one page, not a new page.
+    if (typeof window !== 'undefined') {
+      const url = next ? `/cap/${CAPS[next.capIdx].slug}` : '/';
+      window.history.replaceState(null, '', url);
+    }
     if (unmountTimer.current) clearTimeout(unmountTimer.current);
     if (next) {
       setPanel(next);
@@ -957,6 +990,7 @@ export default function CapGrid() {
           focus={focus}
           flipped={flipped}
           reduced={reduced}
+          initialCapIdx={initialCapIdx}
           onFocus={changeFocus}
           onFlip={toggleFlip}
         />

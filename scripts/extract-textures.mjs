@@ -22,7 +22,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const files = fs
   .readdirSync(PUBLIC)
-  .filter((f) => f.endsWith('.glb'))
+  .filter((f) => f.endsWith('.glb') && !f.startsWith('cap-')) // cap-lo/cap-hi are derived
   .sort();
 
 let totalIn = 0;
@@ -43,6 +43,37 @@ for (const file of files) {
   const start = binOffset + (view.byteOffset ?? 0);
   const png = fs.readFileSync(path.join(PUBLIC, file)).subarray(start, start + view.byteLength);
   totalIn += png.length;
+
+  // A PNG for Open Graph cards. Two things make this more than a resize:
+  //
+  // 1. Satori renders OG images and does not reliably decode WebP, so this needs
+  //    its own format.
+  // 2. The source texture is a UV ATLAS, not a label. Most of it is the unwrapped
+  //    skirt; the printed cap FACE is a single island in the bottom-right. Using
+  //    the whole atlas gives a flat disc of brand colour with the logo shoved into
+  //    a corner. These fractions crop the face island — identical for every cap,
+  //    because all 14 share one mesh and therefore one UV layout.
+  const FACE = { left: 0.6, top: 0.548, size: 0.4 };
+  const meta = await sharp(png).metadata();
+  const left = Math.round(FACE.left * meta.width);
+  const top = Math.round(FACE.top * meta.height);
+  const side = Math.min(
+    Math.round(FACE.size * meta.width),
+    meta.width - left,
+    meta.height - top,
+  );
+  const FACE_PX = 512;
+  const disc = Buffer.from(
+    `<svg width="${FACE_PX}" height="${FACE_PX}"><circle cx="${FACE_PX / 2}" cy="${FACE_PX / 2}" r="${FACE_PX / 2}" fill="#fff"/></svg>`,
+  );
+  await sharp(png)
+    .extract({ left, top, width: side, height: side })
+    .resize(FACE_PX, FACE_PX)
+    // Round it off here rather than in CSS: the artwork's corners are brand colour,
+    // so a CSS border-radius would leave a coloured disc wider than the cap.
+    .composite([{ input: disc, blend: 'dest-in' }])
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(OUT, `${slug}-og.png`));
 
   // Square them off (sources are ~1401x1389) so mipmapping behaves.
   for (const [size, quality] of [

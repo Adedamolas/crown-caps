@@ -45,6 +45,26 @@ export const LATTICE_B = 5;
 export const capAt = (col: number, row: number, n: number) =>
   (((LATTICE_A * col + LATTICE_B * row) % n) + n) % n;
 
+/**
+ * Inverse of `capAt`: the cell nearest the origin holding a given cap.
+ *
+ * Needed for deep links — arriving at /cap/<slug> has to place that cap somewhere
+ * real in the infinite field, so that closing focus returns it to a grid slot on
+ * screen rather than flying it off to a cell that was never there.
+ */
+export function cellFor(capIdx: number, n: number): { col: number; row: number } {
+  for (let r = 0; r <= n; r++) {
+    for (let col = -r; col <= r; col++) {
+      for (let row = -r; row <= r; row++) {
+        if (Math.max(Math.abs(col), Math.abs(row)) === r && capAt(col, row, n) === capIdx) {
+          return { col, row };
+        }
+      }
+    }
+  }
+  return { col: 0, row: 0 };
+}
+
 export const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 /** Frame-rate independent damping factor. Never use `k * dt` directly. */

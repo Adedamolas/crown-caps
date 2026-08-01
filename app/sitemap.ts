@@ -1,20 +1,18 @@
 import type { MetadataRoute } from 'next';
+import { CAPS } from './data/caps';
 import { SITE_URL } from './site';
 
-/**
- * Only the routes that actually exist. Focusing a cap is an in-page overlay, not a
- * route, so there is nothing else to list yet — listing `/cap/<slug>` URLs before
- * they resolve would hand crawlers a page of 404s.
- *
- * When the deep-linked detail route lands (MOTION.md §6), map CAPS to entries here.
- */
 export default function sitemap(): MetadataRoute.Sitemap {
+  const now = new Date();
   return [
-    {
-      url: `${SITE_URL}/`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 1,
-    },
+    { url: `${SITE_URL}/`, lastModified: now, changeFrequency: 'monthly', priority: 1 },
+    // One entry per cap. These are real prerendered routes with their own metadata
+    // and Open Graph card, so they are worth indexing individually.
+    ...CAPS.map((cap) => ({
+      url: `${SITE_URL}/cap/${cap.slug}`,
+      lastModified: now,
+      changeFrequency: 'yearly' as const,
+      priority: 0.8,
+    })),
   ];
 }

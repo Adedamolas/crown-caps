@@ -203,27 +203,70 @@ live trademarks (CLAUDE.md §10) and does not need a second rights problem.
 
 ## 5. Research status
 
-Done 2026-07-31, sources and supporting quotes in `app/data/caps.ts`. **9 of 14 caps carry
-sourced facts; 5 carry `disputed` flags.**
+**Revised 2026-08-01 — an earlier round of research was wrong and has been replaced.**
 
-Established: 7up's first Nigerian bottle on **1 October 1960** (independence day); Fanta into
-Nigeria **1960**; Coca-Cola bottled in Nigeria since **1953**; Pepsi via Seven-Up in the **early
-1990s**; Schweppes founded **Geneva 1783**, Bitter Lemon **1957**.
+The best source for this project is **crowncaps.info**, a collectors' database of 355,000+
+catalogued caps that Rehoboth pointed us at. Its records carry the **rim text printed on the cap
+itself**: bottler name, street address, licence wording and NRN registration number. For "was this
+drink bottled in Nigeria, and by whom", that is primary evidence and it outranks the encyclopaedia
+entries used elsewhere in `caps.ts`.
 
-⚠️ **Gold Spot, Limca and Crush have no documented Nigerian distribution.** All three are
-well-documented brands — Gold Spot and Limca Indian (Parle), Crush American — but no
-authoritative source could be found placing them in the Nigerian market, only Nigerian forum
-recollection. This is 5 of the 14 caps. Do not describe them as Nigerian-market drinks on the
-site without resolving it. CLAUDE.md §8 flagged this risk; it is now confirmed unresolved rather
-than disproven.
+Useful endpoints (the site is a Nuxt SPA; the HTML is not scrapable, the JSON API is):
+
+```
+/api/v1/products                     product categories; 2 = Soda/soft drink
+/api/v1/countries/208/caps?page=N    Nigeria, 981 caps, 30 per page, 33 pages
+/api/v1/caps/{id}                    full record: rim text, producers, year, images
+```
+
+Country 208 is Nigeria. Listing rows carry no brand — brands and rim text live on the per-cap
+record. Filter params on the listing are ignored server-side, so page through and filter locally.
+Of Nigeria's 981 caps, **543 are soda/soft drink**.
+
+### ⚠️ Gold Spot, Limca and Crush WERE bottled in Nigeria
+
+These three were previously flagged as undocumented in Nigeria, because general-web sources
+describe them only as Indian and American brands. **That conclusion was wrong.** All three were
+bottled in Nigeria under licence, by named Nigerian companies, and the caps themselves say so:
+
+| Brand | Nigerian bottler, from the cap's own rim text |
+| --- | --- |
+| Gold Spot | Femstar & Co., 2/4 Abimbola Street, Isolo, Lagos — Registered User © The Coca-Cola Company, NRN 01-0546. Also Warri Bottling Company (1990), and under authority of Sonpar Ltd. One cap reads **"25 Years Refreshing Nigeria"**. |
+| Limca | Nigerian Bottling Company, Iddo House, Lagos — NRN 01-0545. Also "Limca Bottlers, Onitsha, Warri, Okigwe". |
+| Crush | Seven-Up Bottling Co., 247 Apapa Road (Ijora), Lagos, "under Authority from Crush International (USA) Inc."; later Nigerian Breweries Plc, Iganmu House. |
+
+Do not reintroduce those `disputed` flags.
+
+### ⚠️ The ₦25 cap is a price
+
+Settled. Cap **285444** is this exact design: *"7up ₦ 25 / 7up N25 / Carbonated Soft Drink /
+NRN 01-0164"*. It is one of a run — the same cap exists at ₦50 and ₦70 as the bottle price rose —
+and **110 of the 543 Nigerian soft-drink caps carry a ₦ marking**. Coca-Cola caps of the era spell
+it out: *"₦ 1.50 Rec. Retail Price"*, *"₦80 RRP"*. It is the recommended retail price, printed on
+the crown.
+
+### Also established
+
+- **Schweppes' Nigerian bottler** — Nigerian Bottling Company, Iddo House, Lagos, "produced under
+  authority of Atlantic Industries". 20 catalogued Nigerian Schweppes caps.
+- **Mountain Dew** — sold as plain "Dew", Seven-Up Bottling Company, 247 Moshood Abiola Way,
+  Ijora, Lagos, under authority of PepsiCo.
+- **Mirinda is real and Nigerian** — 32 catalogued caps (Seven-Up Lagos; Endo Bottling Project,
+  Onitsha). CLAUDE.md §9 wondered whether it existed. It does; there is simply no model for it in
+  `/public`. Worth asking Rehoboth whether that was the design he scrapped.
+- **Teem and Krest** also appear on Nigerian caps, if the collection ever expands.
+
+Still unsourced: Pepsi's exact Nigerian launch year (only "early 1990s").
 
 ## 6. Open items
 
 - [ ] Confirm `goldspot-orange` / `GOLD SPOT RED` naming with Rehoboth
-- [ ] Confirm whether a Mirinda cap exists or was the excluded dud
+- [x] ~~Confirm whether a Mirinda cap exists~~ — it does, 32 Nigerian caps catalogued
 - [ ] **Lock the credit line** — CLAUDE.md §2, blocks public launch
-- [ ] Resolve Gold Spot / Limca / Crush Nigerian distribution, or say so plainly on the site
-- [ ] Resolve the ₦25 cap; find Schweppes' Nigerian bottler; pin Pepsi's exact launch year
-- [ ] Upgrade every source from Wikipedia-grade to primary records
+- [x] ~~Resolve Gold Spot / Limca / Crush Nigerian distribution~~ — all three confirmed (§5)
+- [x] ~~Resolve the ₦25 cap~~ — it is the recommended retail price (§5)
+- [x] ~~Find Schweppes' Nigerian bottler~~ — Nigerian Bottling Company, Iddo House (§5)
+- [ ] Pin Pepsi's exact Nigerian launch year
+- [ ] Upgrade the remaining Wikipedia-grade sources to primary records
 - [ ] Bake the rim normal map when generating `cap-lo.glb`
 - [ ] Wire `cap-hi.glb` for the focused cap if the rim reads faceted

@@ -5,12 +5,15 @@
 
 /**
  * ⚠️ Set `NEXT_PUBLIC_SITE_URL` in the deployment environment before launch.
+ *
+ * NOTE: crowncaps.info is an UNRELATED third-party crown cap collectors' site, not
+ * ours. Do not use it here.
  * Absolute URLs in Open Graph tags are not optional — crawlers and social
  * scrapers will not resolve a relative image path, so an unset value here means
  * link previews silently break.
  */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://crowncaps.info'
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://crown-caps.vercel.app'
 ).replace(/\/$/, '');
 
 export const SITE = {

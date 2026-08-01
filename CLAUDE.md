@@ -114,17 +114,23 @@ designed, textured and animated 3D crown caps of ~15 early-2000s soft drinks in 
 - Getting the drink facts **right** is the whole reputation of the site. Nigerian Twitter will
   drag any inaccuracy.
 - **Do NOT publish AI-generated (Gemini/etc.) drink facts raw. Every fact must be verified.**
-- Provenance is genuinely uncertain for some (e.g. Gold Spot and Limca may be Indian-market
-  brands; "₦25 / N25" green cap — unclear if it's a brand or a price gimmick). Research and
-  confirm before publishing.
+- ✅ **RESOLVED 2026-08-01.** Gold Spot and Limca *originated* in India but were both bottled in
+  Nigeria under licence by named Nigerian companies; Crush likewise. The ₦25 is a printed retail
+  price. All three came from crowncaps.info, whose records carry the rim text printed on the cap
+  itself — primary evidence. See `docs/ASSETS.md` §5. An earlier research pass concluded the
+  opposite and was wrong; do not revert it.
 - Rehoboth may share his own research notes — treat as raw material to verify, not as gospel.
 
 ## 9. Cap list (finalize against actual `/public` filenames)
 
 ✅ **CONFIRMED 2026-07-31 against `/public` — full inventory + embedded texture names in
 `docs/ASSETS.md` §3.** Two corrections to the guess below:
-- **There is no Mirinda cap.** No such file exists (the excluded dud?). Confirm with Rehoboth.
-- **"₦25" is not its own brand** — it's `7up-old.glb`, whose texture is named `N25 7UP COVER`.
+- **There is no Mirinda cap FILE** — but Mirinda was a real Nigerian brand (32 caps catalogued on
+  crowncaps.info, bottled by Seven-Up Lagos and Endo Bottling, Onitsha). Ask Rehoboth whether that
+  was the design he scrapped.
+- **"₦25" is not its own brand** — it's `7up-old.glb`, texture `N25 7UP COVER`. ✅ RESOLVED
+  2026-08-01: ₦25 is the recommended retail price printed on the crown, standard Nigerian bottling
+  practice. See `docs/ASSETS.md` §5.
 - ⚠️ Unresolved: `goldspot-orange.glb` contains a texture named `GOLD SPOT RED`. One name is
   wrong; resolve before it reaches the UI.
 

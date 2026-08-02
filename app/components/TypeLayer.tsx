@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { SERIF_FAMILY } from '../fonts';
+import { SERIF_FAMILY, SERIF_PRIMARY } from '../fonts';
 
 /**
  * The hero line, drawn to a canvas and hung in the scene at z = 0.
@@ -75,16 +75,22 @@ export function useTitleTexture(ink: THREE.Color) {
      * `document.fonts.load()` is what actually fetches it. Both styles, because the
      * middle line is italic and loading the roman does not bring the italic with it.
      */
+    const draw = () => {
+      if (cancelled) return;
+      made = drawTitle(hex);
+      setTex(made);
+    };
+
     Promise.all([
-      document.fonts.load(`400 100px ${SERIF_FAMILY}`),
-      document.fonts.load(`italic 400 100px ${SERIF_FAMILY}`),
+      document.fonts.load(`400 100px ${SERIF_PRIMARY}`),
+      document.fonts.load(`italic 400 100px ${SERIF_PRIMARY}`),
     ])
       .then(() => document.fonts.ready)
-      .then(() => {
-        if (cancelled) return;
-        made = drawTitle(hex);
-        setTex(made);
-      });
+      // Never let a font problem cost us the title entirely. Worst case it bakes in a
+      // fallback face, which is a cosmetic regression; failing closed renders nothing
+      // at all, which is a blank hero.
+      .catch(() => undefined)
+      .then(draw);
 
     return () => {
       cancelled = true;

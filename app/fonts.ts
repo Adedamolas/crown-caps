@@ -41,9 +41,20 @@ export const instrumentSerif = Instrument_Serif({
   style: ['normal', 'italic'],
 });
 
-/** Family name as the browser knows it, e.g. `'Instrument Serif', 'Instrument Serif Fallback'`. */
+/** Full stack as the browser knows it, e.g. `'Instrument Serif', 'Instrument Serif Fallback'`. */
 export const SERIF_FAMILY = instrumentSerif.style.fontFamily;
 export const SANS_FAMILY = geistSans.style.fontFamily;
+
+/**
+ * Just the real family, no fallback — what `document.fonts.load()` must be given.
+ *
+ * next/font appends a metric-adjusted "… Fallback" face declared with `src: local(…)`.
+ * There is nothing to fetch for it, so asking `fonts.load()` for the full stack
+ * rejects with a NetworkError. Draw with the full stack; load only the first name.
+ */
+const primary = (stack: string) => stack.split(',')[0].trim();
+export const SERIF_PRIMARY = primary(SERIF_FAMILY);
+export const SANS_PRIMARY = primary(SANS_FAMILY);
 
 export const FONT_VARIABLES = [
   geistSans.variable,

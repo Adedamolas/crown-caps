@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import type { Cap } from '../data/caps';
-import { SANS_FAMILY } from '../fonts';
+import { SANS_FAMILY, SANS_PRIMARY } from '../fonts';
 
 /**
  * The message under the crown — CLAUDE.md §6's "magic moment".
@@ -76,8 +76,9 @@ export function useRevealTexture(cap: Cap | null, ink: THREE.Color) {
     // Same trap as the hero type: canvas text never triggers a font fetch, so the
     // face has to be requested explicitly before it can be drawn with.
     document.fonts
-      .load(`600 58px ${SANS_FAMILY}`)
+      .load(`600 58px ${SANS_PRIMARY}`)
       .then(() => document.fonts.ready)
+      .catch(() => undefined) // a font failure must not cost us the message
       .then(() => {
         if (cancelled) return;
         made = draw(messageFor(cap), hex);

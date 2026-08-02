@@ -41,7 +41,7 @@ What we **override**:
 | --- | --- |
 | `--background: 240 7% 97%` cool grey | bone/warm `--paper` |
 | Indigo `--primary` | mint `#b7e6de`, taken from the asset |
-| Inter 13px for everything | Instrument Serif display + Geist for meta |
+| Inter 13px for everything | Tinos display + Geist for meta |
 | 300ms motion ceiling | exempt — this is an experience piece, see `MOTION.md` §1 |
 | Dark contextual menus | no dark menus; this UI has almost no chrome |
 
@@ -114,8 +114,8 @@ match, not a confirmed identification.
 
 | Role | Family | Size | Notes |
 | --- | --- | --- | --- |
-| Hero word | Instrument Serif | `clamp(4rem, 16vw, 14rem)` | tracking `-0.03em`, leading `0.85` |
-| Cap name (focused) | Instrument Serif | `clamp(2.5rem, 7vw, 5rem)` | italic permitted for variants |
+| Hero word | Tinos | `clamp(4rem, 16vw, 14rem)` | tracking `-0.03em`, leading `0.85` |
+| Cap name (focused) | Tinos | `clamp(2.5rem, 7vw, 5rem)` | italic permitted for variants |
 | Section / eyebrow | Geist | `text-[11px]` | `uppercase`, tracking `0.18em`, `--ink-3` |
 | Body / history | Geist | `text-[15px]` | `leading-7`, `--ink-2`, `max-w-[58ch]` |
 | Field label | Geist | `text-[11px]` | uppercase, tracking `0.14em`, `--ink-3` |

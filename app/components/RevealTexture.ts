@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import type { Cap } from '../data/caps';
+import { SANS_FAMILY } from '../fonts';
 
 /**
  * The message under the crown — CLAUDE.md §6's "magic moment".
@@ -35,21 +36,13 @@ function draw(text: string, ink: string): THREE.CanvasTexture | null {
   ctx.fillStyle = '#b7e6de';
   ctx.fillRect(0, 0, SIZE, SIZE);
 
-  const probe = document.createElement('span');
-  probe.style.fontFamily = 'var(--font-sans)';
-  probe.style.position = 'absolute';
-  probe.style.visibility = 'hidden';
-  document.body.appendChild(probe);
-  const family = getComputedStyle(probe).fontFamily || 'sans-serif';
-  probe.remove();
-
   ctx.translate(SIZE / 2, SIZE / 2);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = ink;
 
   // Sized to sit inside the liner's flat centre, clear of the crimped skirt.
-  ctx.font = `600 ${text.length > 9 ? 44 : 58}px ${family}`;
+  ctx.font = `600 ${text.length > 9 ? 44 : 58}px ${SANS_FAMILY}`;
   ctx.letterSpacing = '4px';
   ctx.fillText(text, 0, 0);
 
@@ -80,11 +73,16 @@ export function useRevealTexture(cap: Cap | null, ink: THREE.Color) {
     let cancelled = false;
     let made: THREE.CanvasTexture | null = null;
 
-    document.fonts.ready.then(() => {
-      if (cancelled) return;
-      made = draw(messageFor(cap), hex);
-      setTex(made);
-    });
+    // Same trap as the hero type: canvas text never triggers a font fetch, so the
+    // face has to be requested explicitly before it can be drawn with.
+    document.fonts
+      .load(`600 58px ${SANS_FAMILY}`)
+      .then(() => document.fonts.ready)
+      .then(() => {
+        if (cancelled) return;
+        made = draw(messageFor(cap), hex);
+        setTex(made);
+      });
 
     return () => {
       cancelled = true;

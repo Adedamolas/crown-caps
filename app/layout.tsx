@@ -1,31 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { SITE, SITE_URL } from "./site";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Display face — high-contrast editorial serif with a true italic. Slim, which is
-// the look this project wants (DESIGN.md §4).
-const instrumentSerif = Instrument_Serif({
-  // NOT `--font-serif`: that is the Tailwind theme token, and pointing the token at a
-  // variable of the same name makes it self-referential. CSS then discards it and the
-  // browser silently falls back to a generic system serif — which is exactly what
-  // happened here, undetected, until the face was swapped and nothing changed.
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-});
 
 export const metadata: Metadata = {
   // Required for OG/Twitter images to resolve to absolute URLs (see ./site.ts).
@@ -104,7 +81,7 @@ export default function RootLayout({
   return (
     <html
       lang={SITE.lang}
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${FONT_VARIABLES} h-full antialiased`}
     >
       <head>
         {/*

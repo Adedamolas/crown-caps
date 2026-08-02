@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { SERIF_FAMILY } from '../fonts';
 
 /**
  * The hero line, drawn to a canvas and hung in the scene at z = 0.
@@ -29,18 +30,6 @@ const LINES: { text: string; italic: boolean }[] = [
 const CANVAS_W = 2048;
 const CANVAS_H = 1536;
 
-/** Resolves `var(--font-serif)` to the family name next/font actually generated. */
-function resolveSerif(): string {
-  const probe = document.createElement('span');
-  probe.style.fontFamily = 'var(--font-serif)';
-  probe.style.position = 'absolute';
-  probe.style.visibility = 'hidden';
-  document.body.appendChild(probe);
-  const family = getComputedStyle(probe).fontFamily;
-  probe.remove();
-  return family || 'serif';
-}
-
 
 function drawTitle(ink: string): THREE.CanvasTexture | null {
   const canvas = document.createElement('canvas');
@@ -49,7 +38,6 @@ function drawTitle(ink: string): THREE.CanvasTexture | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  const family = resolveSerif();
   const size = 420;
   const leading = size * 0.92; // tight, like the poster
 
@@ -59,7 +47,7 @@ function drawTitle(ink: string): THREE.CanvasTexture | null {
 
   const top = CANVAS_H / 2 - leading;
   LINES.forEach((line, i) => {
-    ctx.font = `${line.italic ? 'italic ' : ''}${size}px ${family}`;
+    ctx.font = `${line.italic ? 'italic ' : ''}${size}px ${SERIF_FAMILY}`;
     ctx.fillText(line.text, CANVAS_W / 2, top + i * leading);
   });
 
@@ -77,13 +65,26 @@ export function useTitleTexture(ink: THREE.Color) {
     let cancelled = false;
     let made: THREE.CanvasTexture | null = null;
 
-    // Wait for the webfont, or the first paint renders in a fallback serif and the
-    // texture is baked wrong for the rest of the session.
-    document.fonts.ready.then(() => {
-      if (cancelled) return;
-      made = drawTitle(hex);
-      setTex(made);
-    });
+    /**
+     * `document.fonts.ready` is NOT enough on its own, and that is the whole bug this
+     * replaced. Canvas `fillText` never triggers a font download, and nothing else on
+     * the page renders this face until a cap is opened — so the font was never
+     * requested, `ready` resolved instantly, and the texture baked in a system serif
+     * for the rest of the session. It looked like a deliberate typeface choice.
+     *
+     * `document.fonts.load()` is what actually fetches it. Both styles, because the
+     * middle line is italic and loading the roman does not bring the italic with it.
+     */
+    Promise.all([
+      document.fonts.load(`400 100px ${SERIF_FAMILY}`),
+      document.fonts.load(`italic 400 100px ${SERIF_FAMILY}`),
+    ])
+      .then(() => document.fonts.ready)
+      .then(() => {
+        if (cancelled) return;
+        made = drawTitle(hex);
+        setTex(made);
+      });
 
     return () => {
       cancelled = true;

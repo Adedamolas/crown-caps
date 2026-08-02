@@ -105,6 +105,27 @@ pointing the token at a next/font variable of the same name makes it self-refere
 @theme inline { --font-serif: var(--font-display); }
 ```
 
+**And there is a second trap behind the first.** The hero type is drawn into a *canvas texture*,
+and canvas has no connection to CSS: `fillText` cannot read a custom property, and — critically —
+**it never triggers a font download**. Nothing else on the page renders the display face until a
+cap is opened, so the font was never requested at all, `document.fonts.ready` resolved instantly,
+and the texture baked a system fallback for the whole session.
+
+Anything drawing text to a canvas must therefore:
+
+```ts
+import { SERIF_FAMILY } from '@/app/fonts';   // the real family name, not a DOM probe
+
+await document.fonts.load(`400 100px ${SERIF_FAMILY}`);
+await document.fonts.load(`italic 400 100px ${SERIF_FAMILY}`);  // styles load separately
+await document.fonts.ready;
+// only now is it safe to draw
+```
+
+Fonts live in `app/fonts.ts` so the family names are importable. `next/font` exposes
+`.style.fontFamily`, which is exact — the earlier DOM-probe approach (reading a hidden span's
+computed style) was guessing at what CSS had resolved, and inherited every bug above.
+
 This shipped broken and went unnoticed for days. Every heading rendered in whatever generic serif
 the OS supplied, which is chunky and wide, and the page was judged against the poster on that
 basis — leading to a wrong conclusion that the typeface itself needed replacing. **Verify a font

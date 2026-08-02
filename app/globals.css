@@ -47,7 +47,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-serif);
+  --font-serif: var(--font-display);
 
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);

@@ -41,7 +41,7 @@ What we **override**:
 | --- | --- |
 | `--background: 240 7% 97%` cool grey | bone/warm `--paper` |
 | Indigo `--primary` | mint `#b7e6de`, taken from the asset |
-| Inter 13px for everything | Tinos display + Geist for meta |
+| Inter 13px for everything | Instrument Serif display + Geist for meta |
 | 300ms motion ceiling | exempt — this is an experience piece, see `MOTION.md` §1 |
 | Dark contextual menus | no dark menus; this UI has almost no chrome |
 
@@ -91,31 +91,36 @@ Notes:
 
 Two families. Both self-hosted through `next/font` (subsetted, no external request, no CDN cost).
 
-**Display — `Tinos`.** *(Corrected 2026-08-02.)* Metrically compatible with **Times New Roman**,
-which is what the poster is actually set in.
+**Display — `Instrument Serif`.** High-contrast editorial serif with a true italic. Slim, narrow
+strokes with fine hairlines — that slimness is the look this project wants.
 
-The first choice was Instrument Serif, on the reasoning that the poster was a high-contrast
-editorial serif. **That reading was wrong.** Rendering candidates beside a crop of the poster's
-own "Drinks" settles it: the poster is a transitional book serif — moderate stroke contrast, wide
-bowls, sturdy bracketed serifs — and Instrument Serif is visibly narrower and thinner. Tinos
-matches its width, contrast and serif treatment closely enough to read as the same lettering.
+⚠️ **The font variable must not be named `--font-serif`.** That is the Tailwind theme token, and
+pointing the token at a next/font variable of the same name makes it self-referential:
 
-Rejected in the same comparison: Libre Baskerville (too wide and heavy), EB Garamond (too light,
-small x-height), Playfair Display (high contrast, and old-style numerals turn "2000's" into
-"2ooo's").
+```css
+/* broken — circular, CSS discards it and you silently get a system serif */
+@theme inline { --font-serif: var(--font-serif); }
 
-Tinos also carries **₦ (U+20A6)**, which Instrument Serif does not — that had forced the Open
-Graph cards to fall back to "N25". They now render the naira sign properly.
+/* correct — next/font writes --font-display, the token points at it */
+@theme inline { --font-serif: var(--font-display); }
+```
 
-If the exact face ever matters, ask Rehoboth what he set the poster in; this is a very close
-match, not a confirmed identification.
+This shipped broken and went unnoticed for days. Every heading rendered in whatever generic serif
+the OS supplied, which is chunky and wide, and the page was judged against the poster on that
+basis — leading to a wrong conclusion that the typeface itself needed replacing. **Verify a font
+change by inspecting the resolved custom property, not by looking at the page**: a silent fallback
+looks like a deliberate choice.
+
+Instrument Serif has no **₦ (U+20A6)**. On the site the browser substitutes from a fallback face,
+which is fine. For Open Graph cards, Satori falls back per glyph across whatever fonts you supply,
+so `Tinos-Regular.ttf` is bundled purely to carry that one symbol.
 
 **Meta / UI — `Geist Sans`**, already installed in `app/layout.tsx`. Zero added bytes.
 
 | Role | Family | Size | Notes |
 | --- | --- | --- | --- |
-| Hero word | Tinos | `clamp(4rem, 16vw, 14rem)` | tracking `-0.03em`, leading `0.85` |
-| Cap name (focused) | Tinos | `clamp(2.5rem, 7vw, 5rem)` | italic permitted for variants |
+| Hero word | Instrument Serif | `clamp(4rem, 16vw, 14rem)` | tracking `-0.03em`, leading `0.85` |
+| Cap name (focused) | Instrument Serif | `clamp(2.5rem, 7vw, 5rem)` | italic permitted for variants |
 | Section / eyebrow | Geist | `text-[11px]` | `uppercase`, tracking `0.18em`, `--ink-3` |
 | Body / history | Geist | `text-[15px]` | `leading-7`, `--ink-2`, `max-w-[58ch]` |
 | Field label | Geist | `text-[11px]` | uppercase, tracking `0.14em`, `--ink-3` |

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Tinos } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE, SITE_URL } from "./site";
@@ -14,14 +14,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Display face. Tinos is metrically compatible with Times New Roman, which is what
-// the reference poster is set in — compared side by side it matches the poster's
-// width, stroke contrast and serif treatment (DESIGN.md §4). It also carries the
-// naira sign, which the previous choice did not.
-const tinos = Tinos({
-  variable: "--font-serif",
+// Display face — high-contrast editorial serif with a true italic. Slim, which is
+// the look this project wants (DESIGN.md §4).
+const instrumentSerif = Instrument_Serif({
+  // NOT `--font-serif`: that is the Tailwind theme token, and pointing the token at a
+  // variable of the same name makes it self-referential. CSS then discards it and the
+  // browser silently falls back to a generic system serif — which is exactly what
+  // happened here, undetected, until the face was swapped and nothing changed.
+  variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: "400",
   style: ["normal", "italic"],
 });
 
@@ -102,7 +104,7 @@ export default function RootLayout({
   return (
     <html
       lang={SITE.lang}
-      className={`${geistSans.variable} ${geistMono.variable} ${tinos.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <head>
         {/*

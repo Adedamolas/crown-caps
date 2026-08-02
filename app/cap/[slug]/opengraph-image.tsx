@@ -19,9 +19,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   // Satori renders these, and it does not reliably decode WebP — hence the dedicated
   // PNG emitted by scripts/extract-textures.mjs. Read from disk rather than fetched
   // over HTTP: at build time the site is not serving yet.
-  const [font, fontItalic, capPng] = await Promise.all([
+  const [font, fontItalic, naira, capPng] = await Promise.all([
+    readFile(join(process.cwd(), 'app/fonts/InstrumentSerif-Regular.ttf')),
+    readFile(join(process.cwd(), 'app/fonts/InstrumentSerif-Italic.ttf')),
+    // Instrument Serif has no naira glyph. Satori falls back across the supplied
+    // fonts per glyph, so Tinos rides along purely to render ₦ — which is why the
+    // card can keep the real symbol instead of substituting an N.
     readFile(join(process.cwd(), 'app/fonts/Tinos-Regular.ttf')),
-    readFile(join(process.cwd(), 'app/fonts/Tinos-Italic.ttf')),
     readFile(join(process.cwd(), 'public/tex', `${cap?.texture ?? 'coca-cola'}-og.png`)),
   ]);
   const src = `data:image/png;base64,${capPng.toString('base64')}`;
@@ -37,7 +41,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           gap: 72,
           padding: '0 96px',
           background: '#EFEDE8', // --paper
-          fontFamily: 'Tinos',
+          fontFamily: 'Instrument Serif',
         }}
       >
         <img src={src} width={380} height={380} alt="" />
@@ -68,10 +72,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     {
       ...size,
       fonts: [
-        { name: 'Tinos', data: font, style: 'normal', weight: 400 as const },
-        // Supplied so the variant line renders as a true italic rather than a
-        // synthesised slant. Tinos also carries the naira sign, so ₦25 renders.
-        { name: 'Tinos', data: fontItalic, style: 'italic', weight: 400 as const },
+        { name: 'Instrument Serif', data: font, style: 'normal', weight: 400 as const },
+        { name: 'Instrument Serif', data: fontItalic, style: 'italic', weight: 400 as const },
+        { name: 'Tinos', data: naira, style: 'normal', weight: 400 as const },
       ],
     },
   );

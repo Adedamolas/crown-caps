@@ -35,14 +35,10 @@ export const SITE = {
   creatorHandle: '@rehobothige_',
   creatorUrl: 'https://x.com/rehobothige_',
 
-  /**
-   * ⚠️ Swap `authorUrl` for whichever profile you actually want traffic to land on.
-   * This defaults to the GitHub account that owns the repo because that is the only
-   * handle verifiable from the project itself — if this is going out on X, point it
-   * there instead.
-   */
+  /** X rather than GitHub: this gets shared on X, so the credit should land there. */
   author: 'Adedamola',
-  authorUrl: 'https://github.com/Adedamolas',
+  authorHandle: '@the_darkdev',
+  authorUrl: 'https://x.com/the_darkdev',
 
   ogImage: {
     url: '/og.png',

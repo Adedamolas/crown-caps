@@ -23,6 +23,12 @@ const jsonLd = {
         alternateName: SITE.creatorHandle,
         url: SITE.creatorUrl,
       },
+      author: {
+        '@type': 'Person',
+        name: SITE.author,
+        alternateName: SITE.authorHandle,
+        url: SITE.authorUrl,
+      },
     },
     {
       '@type': 'CollectionPage',

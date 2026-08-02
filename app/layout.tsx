@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Tinos } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE, SITE_URL } from "./site";
@@ -14,12 +14,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Display face — high-contrast editorial serif with a true italic, matching the
-// roman/italic mix in the reference poster (DESIGN.md §4). One weight, tiny file.
-const instrumentSerif = Instrument_Serif({
+// Display face. Tinos is metrically compatible with Times New Roman, which is what
+// the reference poster is set in — compared side by side it matches the poster's
+// width, stroke contrast and serif treatment (DESIGN.md §4). It also carries the
+// naira sign, which the previous choice did not.
+const tinos = Tinos({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "700"],
   style: ["normal", "italic"],
 });
 
@@ -100,7 +102,7 @@ export default function RootLayout({
   return (
     <html
       lang={SITE.lang}
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${tinos.variable} h-full antialiased`}
     >
       <head>
         {/*

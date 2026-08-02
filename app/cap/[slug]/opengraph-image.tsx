@@ -12,14 +12,6 @@ export function generateStaticParams() {
   return CAPS.map((cap) => ({ slug: cap.slug }));
 }
 
-/**
- * Instrument Serif has no naira glyph (U+20A6), so "₦25" renders as a tofu box in
- * the card. The caps themselves print it both ways — the ₦25 7up also reads "N25" —
- * so falling back to N is accurate rather than a fudge. Only the OG image is
- * affected; the site keeps ₦ everywhere, where the browser can pick a fallback font.
- */
-const ogSafe = (s: string) => s.replace(/₦/g, 'N');
-
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const cap = CAPS.find((c) => c.slug === slug);
@@ -27,8 +19,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   // Satori renders these, and it does not reliably decode WebP — hence the dedicated
   // PNG emitted by scripts/extract-textures.mjs. Read from disk rather than fetched
   // over HTTP: at build time the site is not serving yet.
-  const [font, capPng] = await Promise.all([
-    readFile(join(process.cwd(), 'app/fonts/InstrumentSerif-Regular.ttf')),
+  const [font, fontItalic, capPng] = await Promise.all([
+    readFile(join(process.cwd(), 'app/fonts/Tinos-Regular.ttf')),
+    readFile(join(process.cwd(), 'app/fonts/Tinos-Italic.ttf')),
     readFile(join(process.cwd(), 'public/tex', `${cap?.texture ?? 'coca-cola'}-og.png`)),
   ]);
   const src = `data:image/png;base64,${capPng.toString('base64')}`;
@@ -44,7 +37,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           gap: 72,
           padding: '0 96px',
           background: '#EFEDE8', // --paper
-          fontFamily: 'Instrument Serif',
+          fontFamily: 'Tinos',
         }}
       >
         <img src={src} width={380} height={380} alt="" />
@@ -55,7 +48,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           </div>
           {cap?.variant && (
             <div style={{ fontSize: 54, color: '#635F5C', fontStyle: 'italic', marginTop: 8 }}>
-              {ogSafe(cap.variant)}
+              {cap.variant}
             </div>
           )}
           <div
@@ -74,7 +67,12 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     ),
     {
       ...size,
-      fonts: [{ name: 'Instrument Serif', data: font, style: 'normal', weight: 400 }],
+      fonts: [
+        { name: 'Tinos', data: font, style: 'normal', weight: 400 as const },
+        // Supplied so the variant line renders as a true italic rather than a
+        // synthesised slant. Tinos also carries the naira sign, so ₦25 renders.
+        { name: 'Tinos', data: fontItalic, style: 'italic', weight: 400 as const },
+      ],
     },
   );
 }

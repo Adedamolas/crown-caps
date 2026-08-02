@@ -1,6 +1,11 @@
-Instrument Serif — Copyright (c) Instrument
-Licensed under the SIL Open Font License, Version 1.1.
-https://openfontlicense.org  ·  https://fonts.google.com/specimen/Instrument+Serif
+Tinos — Copyright (c) Steve Matteson, Ascender Corp.
+Licensed under the Apache License, Version 2.0.
+https://fonts.google.com/specimen/Tinos
+
+Chosen because it is metrically compatible with Times New Roman, which is what
+Rehoboth's original poster is set in. Compared side by side against the poster,
+Tinos matches its width, stroke contrast and serif treatment; the previous
+choice (Instrument Serif) was visibly narrower and higher-contrast.
 
 Bundled here (rather than loaded via next/font) because Open Graph images are
 rendered by Satori, which needs the raw font binary at render time. The web

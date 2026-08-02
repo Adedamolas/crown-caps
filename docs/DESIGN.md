@@ -91,9 +91,24 @@ Notes:
 
 Two families. Both self-hosted through `next/font` (subsetted, no external request, no CDN cost).
 
-**Display — `Instrument Serif`.** High-contrast editorial serif with a true italic, matching the
-poster's roman/italic mix ("Drinks" upright, "of the" italic). One weight, tiny file — which is
-the point on a metered connection.
+**Display — `Tinos`.** *(Corrected 2026-08-02.)* Metrically compatible with **Times New Roman**,
+which is what the poster is actually set in.
+
+The first choice was Instrument Serif, on the reasoning that the poster was a high-contrast
+editorial serif. **That reading was wrong.** Rendering candidates beside a crop of the poster's
+own "Drinks" settles it: the poster is a transitional book serif — moderate stroke contrast, wide
+bowls, sturdy bracketed serifs — and Instrument Serif is visibly narrower and thinner. Tinos
+matches its width, contrast and serif treatment closely enough to read as the same lettering.
+
+Rejected in the same comparison: Libre Baskerville (too wide and heavy), EB Garamond (too light,
+small x-height), Playfair Display (high contrast, and old-style numerals turn "2000's" into
+"2ooo's").
+
+Tinos also carries **₦ (U+20A6)**, which Instrument Serif does not — that had forced the Open
+Graph cards to fall back to "N25". They now render the naira sign properly.
+
+If the exact face ever matters, ask Rehoboth what he set the poster in; this is a very close
+match, not a confirmed identification.
 
 **Meta / UI — `Geist Sans`**, already installed in `app/layout.tsx`. Zero added bytes.
 

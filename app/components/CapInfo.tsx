@@ -43,14 +43,16 @@ function Field({ label, field }: { label: string; field?: Sourced<string> }) {
   );
 }
 
-export default function CapInfo({
+function CapInfo({
   cap,
   visible,
   onClose,
+  ref,
 }: {
   cap: Cap;
   visible: boolean;
   onClose: () => void;
+  ref?: React.Ref<HTMLElement>;
 }) {
   const facts = [
     ['Flavour', cap.flavour],
@@ -63,6 +65,11 @@ export default function CapInfo({
 
   return (
     <aside
+      ref={ref}
+      // Focus lands here when a cap opens, so a screen reader reads the panel rather
+      // than staying parked on the canvas. Not reachable by Tab — it is programmatic.
+      tabIndex={-1}
+      aria-label={`${cap.name}${cap.variant ? ` ${cap.variant}` : ''}`}
       style={{
         transitionTimingFunction: 'var(--ease-out)',
         // Exits run faster than entrances, per the house motion rules.
@@ -89,7 +96,7 @@ export default function CapInfo({
         {/* The reveal is the point of the whole thing, and on a phone the panel
             scrolls — so the hint sits with the title, never below the fold. */}
         <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-ink-3">
-          Tap the cap to turn it over
+          Tap the cap — or press Enter — to turn it over
         </p>
       </div>
 
@@ -134,3 +141,5 @@ export default function CapInfo({
     </aside>
   );
 }
+
+export default CapInfo;

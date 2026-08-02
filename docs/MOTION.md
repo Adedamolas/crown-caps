@@ -137,8 +137,15 @@ catalogue; clumped it reads as broken.
 - **Speed ceiling**: drag and inertia both clamp to `FIELD.MAX_SPEED`. Unbounded flick velocity
   sends the field across many cells per frame, every cap snaps rather than eases, and it reads as
   tearing rather than speed.
-- **Keyboard**: arrows nudge `O` by one cell, `Tab` moves focus cap to cap. Per design-dna,
-  **keyboard-initiated movement is not animated** beyond a 150ms settle — no flourish.
+- **Keyboard** *(implemented)*: arrows move a **selection** cap by cap and the field snaps to
+  follow it; Enter/Space opens the selected cap; Enter/Space again turns it over; Escape closes
+  and returns focus to the stage. Selection reuses the cursor's lift and scale, so "this is the
+  one" looks identical whichever device you drive with. Per design-dna, **keyboard-initiated
+  movement is not animated** — the field snaps rather than glides, because a long travel between
+  caps makes arrow-key navigation feel unresponsive.
+
+  Arrows *select* rather than *pan* deliberately: panning gives a keyboard user no way to say
+  "this one", so there would be nothing to open.
 - No scrollbars, no scroll container. The page itself never scrolls; `overscroll-behavior: none`.
 
 ## 4. Cursor attraction
@@ -365,6 +372,27 @@ locked-down browser, a GPU blocklist, a machine out of contexts — otherwise ge
 rectangle. `NoWebGL.tsx` renders the hero line, the poster image and the cap list instead. Probe
 synchronously in a lazy initialiser, never in an effect, or the fallback flashes for a frame
 before the canvas replaces it.
+
+## 8bb. Keyboard and assistive tech
+
+The canvas is a single focusable widget: `tabIndex={0}`, `role="application"`, and an
+`aria-label` that states the controls, because none of them are discoverable otherwise. An
+`aria-live="polite"` region announces the selected cap by name as the selection moves — polite so
+it never interrupts, name-only because the panel carries the detail.
+
+Opening a cap moves DOM focus into the panel (`tabIndex={-1}`, labelled). Without that a screen
+reader stays parked on the canvas and never announces the thing that just appeared, and a keyboard
+user has to traverse the page to reach Close. Escape returns focus to the stage — otherwise every
+close strands the user at the top of the document.
+
+**The whole site is also usable without the canvas at all.** The home page carries a `<nav>` of
+fourteen links, one per cap, each landing on a page with that cap's sourced history.
+
+⚠️ That nav is `sr-only` **with `focus-within:not-sr-only`**, and the second half is not optional.
+A focusable element inside an `sr-only` container cannot escape its clipping, so a sighted
+keyboard user Tabs into things they cannot see and loses the focus ring completely. Revealing the
+list on focus is the skip-link pattern; without it this is an accessibility *trap* rather than an
+accessibility feature.
 
 ## 8c. Telling people it is interactive
 

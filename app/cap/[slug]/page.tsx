@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import CapGrid from '../../components/CapGridClient';
+import Credit from '../../components/Credit';
 import { CAPS } from '../../data/caps';
 import { SITE } from '../../site';
 
@@ -94,6 +95,8 @@ export default async function CapPage({ params }: { params: Promise<{ slug: stri
         </dl>
         {cap.disputed && <p>{cap.disputed}</p>}
       </div>
+
+      <Credit />
 
       <CapGrid initialSlug={slug} />
     </main>

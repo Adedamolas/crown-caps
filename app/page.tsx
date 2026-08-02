@@ -1,4 +1,5 @@
 import CapGrid from './components/CapGridClient';
+import Credit from './components/Credit';
 import { CAPS } from './data/caps';
 import { SITE, SITE_URL } from './site';
 
@@ -38,6 +39,7 @@ const jsonLd = {
           '@type': 'ListItem',
           position: i + 1,
           name: cap.variant ? `${cap.name} (${cap.variant})` : cap.name,
+          url: `${SITE_URL}/cap/${cap.slug}`,
         })),
       },
     },
@@ -54,27 +56,54 @@ export default function Home() {
       />
 
       {/*
-        The crawlable layer. The grid is a WebGL canvas, which is invisible to search
-        engines and to screen readers alike — this gives both the real content, and a
-        genuine H1 for the page. Visually hidden, NOT `display: none`, so assistive
-        tech still reaches it.
+        Text content for crawlers and screen readers. The grid is a WebGL canvas and
+        is invisible to both. Visually hidden, NOT `display: none`, so assistive tech
+        still reaches it. Nothing in here is focusable — see the nav below.
       */}
       <div className="sr-only">
         <h1>{SITE.title}</h1>
         <p>{SITE.description}</p>
-        <h2>Caps in this collection</h2>
-        <ul>
+        <p>
+          3D crown caps modelled, textured and animated by {SITE.creator} ({SITE.creatorHandle}).
+          Site built by {SITE.author}.
+        </p>
+      </div>
+
+      {/*
+        The whole site, navigable without a pointer: fourteen links, each to a page
+        carrying that cap's sourced history.
+
+        `focus-within:not-sr-only` matters. A focusable element inside an `sr-only`
+        container cannot escape its clipping, so a sighted keyboard user would Tab
+        into elements they cannot see and lose the focus ring entirely. Revealing the
+        list on focus is the skip-link pattern, and it is the difference between this
+        being an accessibility feature and an accessibility trap.
+      */}
+      <nav
+        aria-label="All caps"
+        className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:left-4
+                   focus-within:top-4 focus-within:z-50 focus-within:flex focus-within:max-h-[80dvh]
+                   focus-within:flex-col focus-within:gap-1 focus-within:overflow-y-auto
+                   focus-within:border focus-within:border-paper-edge focus-within:bg-paper
+                   focus-within:p-4 focus-within:shadow-sm"
+      >
+        <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-3">Caps in this collection</h2>
+        <ul className="flex flex-col gap-0.5">
           {CAPS.map((cap) => (
             <li key={cap.slug}>
-              {cap.variant ? `${cap.name} — ${cap.variant}` : cap.name}
-              {cap.history ? `. ${cap.history.value}` : null}
+              <a
+                href={`/cap/${cap.slug}`}
+                className="text-[13px] text-ink underline decoration-paper-edge underline-offset-2
+                           outline-none focus-visible:ring-2 focus-visible:ring-rim/50"
+              >
+                {cap.variant ? `${cap.name} — ${cap.variant}` : cap.name}
+              </a>
             </li>
           ))}
         </ul>
-        <p>
-          3D crown caps modelled, textured and animated by {SITE.creator} ({SITE.creatorHandle}).
-        </p>
-      </div>
+      </nav>
+
+      <Credit />
 
       <CapGrid />
     </main>

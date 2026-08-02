@@ -232,13 +232,15 @@ function useCapTextures() {
  * Owns the field's mutable input state AND its own DOM listeners (bound to the
  * canvas), so nothing mutates a prop across a component boundary.
  */
-export type Focus = { col: number; row: number; capIdx: number };
+export type Cell = { col: number; row: number };
+export type Focus = Cell & { capIdx: number };
 
 function CapField({
   focus,
   flipped,
   reduced,
   initialCapIdx,
+  selected,
   onFocus,
   onFlip,
 }: {
@@ -246,6 +248,7 @@ function CapField({
   flipped: boolean;
   reduced: boolean;
   initialCapIdx: number | null;
+  selected: Cell | null;
   onFocus: (f: Focus | null) => void;
   onFlip: () => void;
 }) {
@@ -469,6 +472,20 @@ function CapField({
     ease.current = 1;
     onFocus({ col, row, capIdx: initialCapIdx });
   }, [initialCapIdx, layout.cell, onFocus]);
+
+  /**
+   * Keyboard selection has to be ON SCREEN to be any use, so the field follows it.
+   * Snapped rather than eased: house rule is that keyboard-initiated movement is not
+   * animated beyond a settle, and a long glide between caps makes arrow-key
+   * navigation feel unresponsive.
+   */
+  useEffect(() => {
+    if (!selected || focus) return;
+    input.current.ox = (selected.col + 0.5) * layout.cell;
+    input.current.oy = (selected.row + 0.5) * layout.cell;
+    input.current.vx = 0;
+    input.current.vy = 0;
+  }, [selected, layout.cell, focus]);
 
   // Input, bound to the canvas itself.
   useEffect(() => {
@@ -716,10 +733,21 @@ function CapField({
         // has caps both in front of and behind it. That interleaving is the poster.
         const zDepth = (hb - 0.5) * FIELD.DEPTH * D;
 
+        // Keyboard selection reuses the cursor's lift, so the highlighted cap rises
+        // and grows exactly as it would under the pointer — one visual language for
+        // "this is the one", whichever device you are driving with.
+        const isSelected =
+          selected !== null && absCol === selected.col && absRow === selected.row && !focus;
+
         // Cursor attraction — gaussian, so there is no visible radius edge. Ramped out
         // while focused, or the blurred field twitches under the info panel.
         let w = 0;
-        if (s.hover && !focus && !reduced) {
+        if (isSelected) {
+          w = 1;
+          target[0] = x;
+          target[1] = y;
+          target[2] = zDepth + FIELD.LIFT * cell;
+        } else if (s.hover && !focus && !reduced) {
           const dx = curX - x;
           const dy = curY - y;
           const d = Math.hypot(dx, dy);
@@ -920,6 +948,10 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
 
   const [focus, setFocus] = useState<Focus | null>(null);
   const [flipped, setFlipped] = useState(false);
+  /** Keyboard cursor. Null until someone actually presses an arrow. */
+  const [selected, setSelected] = useState<Cell | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
   const [webgl] = useState(detectWebGL);
   /** The hint is only useful until the visitor works it out for themselves. */
@@ -966,10 +998,76 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
 
   useEffect(() => {
     if (!focus) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && changeFocus(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      changeFocus(null);
+      // Send focus back where it came from, or a keyboard user is stranded at the
+      // top of the document after every close.
+      stage.current?.focus();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [focus, changeFocus]);
+
+  /**
+   * Move focus into the panel when a cap opens. Without this a screen reader stays
+   * parked on the canvas and never announces the thing that just appeared, and a
+   * keyboard user has to tab through the whole page to reach the close button.
+   */
+  useEffect(() => {
+    if (focus) panelRef.current?.focus();
+  }, [focus]);
+
+  const ARROWS: Record<string, [number, number]> = useMemo(
+    () => ({
+      // World +y is up, so ArrowUp increments the row.
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, 1],
+      ArrowDown: [0, -1],
+    }),
+    [],
+  );
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const activate = e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+
+      // With a cap open, the same key that opened it turns it over.
+      if (focus) {
+        if (activate) {
+          e.preventDefault();
+          toggleFlip();
+        }
+        return;
+      }
+
+      const step = ARROWS[e.key];
+      if (step) {
+        e.preventDefault();
+        setSelected((prev) => {
+          const from = prev ?? { col: 0, row: 0 };
+          // First press selects the centre cap rather than jumping off it.
+          return prev
+            ? { col: from.col + step[0], row: from.row + step[1] }
+            : from;
+        });
+        return;
+      }
+
+      if (activate && selected) {
+        e.preventDefault();
+        changeFocus({ ...selected, capIdx: capAt(selected.col, selected.row, CAPS.length) });
+      }
+    },
+    [focus, selected, toggleFlip, changeFocus, ARROWS],
+  );
+
+  /** What a screen reader should hear as the selection moves. */
+  const selectedCap = selected ? CAPS[capAt(selected.col, selected.row, CAPS.length)] : null;
+  const selectedLabel = selectedCap
+    ? `${selectedCap.name}${selectedCap.variant ? ` ${selectedCap.variant}` : ''}`
+    : '';
 
   useEffect(() => () => void (unmountTimer.current && clearTimeout(unmountTimer.current)), []);
 
@@ -977,9 +1075,15 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
 
   return (
     <div
-      className="relative h-dvh w-full touch-none select-none bg-paper"
+      ref={stage}
+      tabIndex={0}
+      role="application"
+      aria-label="Crown cap collection. Use the arrow keys to move between caps, Enter to open one, Enter again to turn it over, and Escape to close."
+      className="relative h-dvh w-full touch-none select-none bg-paper
+                 outline-none focus-visible:ring-2 focus-visible:ring-rim/50 focus-visible:ring-inset"
       onPointerDown={() => setTouched(true)}
       onWheel={() => setTouched(true)}
+      onKeyDown={onKeyDown}
     >
       <Canvas
         dpr={[1, 1.5]}
@@ -991,6 +1095,7 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
           flipped={flipped}
           reduced={reduced}
           initialCapIdx={initialCapIdx}
+          selected={selected}
           onFocus={changeFocus}
           onFlip={toggleFlip}
         />
@@ -1028,7 +1133,7 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
                     transition-opacity duration-500
                     ${touched || focus ? 'opacity-0' : 'opacity-100'}`}
       >
-        Drag to explore · Tap a cap
+        Drag to explore · Tap a cap · Or use the arrow keys
       </p>
 
       <button
@@ -1040,8 +1145,15 @@ export default function CapGrid({ initialSlug }: { initialSlug?: string }) {
         {muted ? 'Sound off' : 'Sound on'}
       </button>
 
+      {/* Announces the keyboard selection. Polite so it never interrupts, and it
+          carries only the name — the panel itself carries the detail. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {selectedLabel}
+      </div>
+
       {panel && (
         <CapInfo
+          ref={panelRef}
           cap={CAPS[panel.capIdx]}
           visible={focus !== null}
           onClose={() => changeFocus(null)}
